@@ -1,0 +1,8 @@
+-- Clear all existing data from tables
+TRUNCATE TABLE employees CASCADE;
+TRUNCATE TABLE advances CASCADE;
+TRUNCATE TABLE payroll CASCADE;
+TRUNCATE TABLE attendance CASCADE;
+TRUNCATE TABLE incentives CASCADE;
+TRUNCATE TABLE leave_requests CASCADE;
+TRUNCATE TABLE settings CASCADE;
