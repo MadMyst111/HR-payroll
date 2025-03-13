@@ -30,6 +30,7 @@ export interface AttendanceData {
   checkOut?: string;
   status: "present" | "absent" | "late" | "on_leave";
   notes?: string;
+  workHours?: number;
 }
 
 interface AttendanceFormProps {
@@ -58,6 +59,7 @@ const AttendanceForm = ({
       checkOut: "",
       status: "present",
       notes: "",
+      workHours: undefined,
     },
   );
 
@@ -74,9 +76,31 @@ const AttendanceForm = ({
         checkOut: "",
         status: "present",
         notes: "",
+        workHours: undefined,
       });
     }
   }, [initialData, employees]);
+
+  // Calculate work hours when check-in or check-out changes
+  React.useEffect(() => {
+    if (formData.checkIn && formData.checkOut) {
+      const checkInTime = new Date(`2000-01-01T${formData.checkIn}:00`);
+      const checkOutTime = new Date(`2000-01-01T${formData.checkOut}:00`);
+
+      // If check-out is earlier than check-in, assume it's the next day
+      let timeDiff = checkOutTime.getTime() - checkInTime.getTime();
+      if (timeDiff < 0) {
+        timeDiff += 24 * 60 * 60 * 1000; // Add 24 hours
+      }
+
+      // Convert milliseconds to hours (rounded to 2 decimal places)
+      const hours = Math.round((timeDiff / (1000 * 60 * 60)) * 100) / 100;
+      setFormData((prev) => ({ ...prev, workHours: hours }));
+    } else {
+      // If either check-in or check-out is missing, set workHours to undefined
+      setFormData((prev) => ({ ...prev, workHours: undefined }));
+    }
+  }, [formData.checkIn, formData.checkOut]);
 
   const labels = {
     ar: {
@@ -88,6 +112,7 @@ const AttendanceForm = ({
       date: "التاريخ",
       checkIn: "وقت الحضور",
       checkOut: "وقت الانصراف",
+      workHours: "ساعات العمل",
       status: "الحالة",
       present: "حاضر",
       absent: "غائب",
@@ -106,6 +131,7 @@ const AttendanceForm = ({
       date: "Date",
       checkIn: "Check In Time",
       checkOut: "Check Out Time",
+      workHours: "Work Hours",
       status: "Status",
       present: "Present",
       absent: "Absent",
@@ -245,6 +271,26 @@ const AttendanceForm = ({
                       type="time"
                       value={formData.checkOut || ""}
                       onChange={handleChange}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-4 items-center gap-4">
+                  <Label htmlFor="workHours" className="text-right">
+                    {t.workHours}
+                  </Label>
+                  <div className="col-span-3">
+                    <Input
+                      id="workHours"
+                      name="workHours"
+                      type="text"
+                      value={
+                        formData.workHours !== undefined
+                          ? formData.workHours
+                          : ""
+                      }
+                      readOnly
+                      className="bg-gray-100"
                     />
                   </div>
                 </div>

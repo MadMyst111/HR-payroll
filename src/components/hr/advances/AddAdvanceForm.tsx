@@ -30,6 +30,10 @@ export interface AdvanceData {
   approvedBy?: string;
   paymentDate?: string;
   notes?: string;
+  isDeducted?: boolean;
+  deductionDate?: string;
+  remainingAmount?: number;
+  payrollId?: string;
 }
 
 interface AddAdvanceFormProps {
@@ -55,11 +59,17 @@ const AddAdvanceForm = ({
     amount: initialData?.amount || 0,
     requestDate:
       initialData?.requestDate || new Date().toISOString().split("T")[0],
-    expectedPaymentDate: initialData?.expectedPaymentDate || "",
+    expectedPaymentDate:
+      initialData?.expectedPaymentDate ||
+      new Date().toISOString().split("T")[0],
     status: initialData?.status || "pending",
     approvedBy: initialData?.approvedBy || "",
     paymentDate: initialData?.paymentDate || "",
     notes: initialData?.notes || "",
+    isDeducted: initialData?.isDeducted || false,
+    deductionDate: initialData?.deductionDate || "",
+    remainingAmount: initialData?.remainingAmount || initialData?.amount || 0,
+    payrollId: initialData?.payrollId || "",
   });
 
   const labels = {
@@ -69,7 +79,7 @@ const AddAdvanceForm = ({
       employee: "الموظف",
       amount: "المبلغ",
       requestDate: "تاريخ الطلب",
-      expectedPaymentDate: "تاريخ السداد المتوقع",
+      expectedPaymentDate: "تاريخ السداد",
       status: "الحالة",
       approvedBy: "تمت الموافقة من قبل",
       paymentDate: "تاريخ الدفع",
@@ -83,6 +93,12 @@ const AddAdvanceForm = ({
         rejected: "مرفوض",
         paid: "تم الدفع",
       },
+      isDeducted: "تم الخصم",
+      deductionDate: "تاريخ الخصم",
+      remainingAmount: "المبلغ المتبقي",
+      payrollId: "رقم كشف الراتب",
+      yes: "نعم",
+      no: "لا",
     },
     en: {
       title: initialData?.id ? "Edit Advance" : "Add New Advance",
@@ -90,7 +106,7 @@ const AddAdvanceForm = ({
       employee: "Employee",
       amount: "Amount",
       requestDate: "Request Date",
-      expectedPaymentDate: "Expected Payment Date",
+      expectedPaymentDate: "Payment Date",
       status: "Status",
       approvedBy: "Approved By",
       paymentDate: "Payment Date",
@@ -104,6 +120,12 @@ const AddAdvanceForm = ({
         rejected: "Rejected",
         paid: "Paid",
       },
+      isDeducted: "Deducted",
+      deductionDate: "Deduction Date",
+      remainingAmount: "Remaining Amount",
+      payrollId: "Payroll ID",
+      yes: "Yes",
+      no: "No",
     },
   };
 
@@ -111,11 +133,24 @@ const AddAdvanceForm = ({
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target;
-    let newValue: string | number = value;
+    let newValue: string | number | boolean = value;
 
     // Convert numeric fields to numbers
-    if (name === "amount") {
+    if (name === "amount" || name === "remainingAmount") {
       newValue = parseFloat(value) || 0;
+
+      // If changing amount and it's a new advance, also update remainingAmount
+      if (name === "amount" && !initialData?.id) {
+        setFormData((prev) => ({
+          ...prev,
+          remainingAmount: parseFloat(value) || 0,
+        }));
+      }
+    }
+
+    // Handle checkbox for isDeducted
+    if (name === "isDeducted") {
+      newValue = (e.target as HTMLInputElement).checked;
     }
 
     setFormData((prev) => ({ ...prev, [name]: newValue }));
@@ -155,6 +190,7 @@ const AddAdvanceForm = ({
           const adjustedFormData = {
             ...formData,
             amount: remainingLimit,
+            remainingAmount: remainingLimit,
           };
           onSave(adjustedFormData);
         } else {
@@ -225,6 +261,20 @@ const AddAdvanceForm = ({
             />
           </div>
 
+          {initialData?.id && (
+            <div className="space-y-2">
+              <Label htmlFor="remainingAmount">{t.remainingAmount}</Label>
+              <Input
+                id="remainingAmount"
+                name="remainingAmount"
+                type="number"
+                value={formData.remainingAmount}
+                onChange={handleChange}
+                required
+              />
+            </div>
+          )}
+
           <div className="space-y-2">
             <Label htmlFor="requestDate">{t.requestDate}</Label>
             <Input
@@ -237,17 +287,7 @@ const AddAdvanceForm = ({
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="expectedPaymentDate">{t.expectedPaymentDate}</Label>
-            <Input
-              id="expectedPaymentDate"
-              name="expectedPaymentDate"
-              type="date"
-              value={formData.expectedPaymentDate}
-              onChange={handleChange}
-              required
-            />
-          </div>
+          {/* Expected payment date field removed as requested */}
 
           <div className="space-y-2">
             <Label htmlFor="status">{t.status}</Label>
@@ -295,6 +335,47 @@ const AddAdvanceForm = ({
                 name="paymentDate"
                 type="date"
                 value={formData.paymentDate}
+                onChange={handleChange}
+              />
+            </div>
+          )}
+
+          {initialData?.id && (
+            <div className="flex items-center space-x-2">
+              <Label htmlFor="isDeducted" className="flex-grow">
+                {t.isDeducted}
+              </Label>
+              <input
+                id="isDeducted"
+                name="isDeducted"
+                type="checkbox"
+                checked={formData.isDeducted}
+                onChange={handleChange}
+                className="h-4 w-4"
+              />
+            </div>
+          )}
+
+          {formData.isDeducted && (
+            <div className="space-y-2">
+              <Label htmlFor="deductionDate">{t.deductionDate}</Label>
+              <Input
+                id="deductionDate"
+                name="deductionDate"
+                type="date"
+                value={formData.deductionDate}
+                onChange={handleChange}
+              />
+            </div>
+          )}
+
+          {formData.isDeducted && (
+            <div className="space-y-2">
+              <Label htmlFor="payrollId">{t.payrollId}</Label>
+              <Input
+                id="payrollId"
+                name="payrollId"
+                value={formData.payrollId}
                 onChange={handleChange}
               />
             </div>

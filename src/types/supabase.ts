@@ -14,11 +14,15 @@ export type Database = {
           amount: number
           approved_by: string | null
           created_at: string | null
+          deduction_date: string | null
           employee_id: string | null
           expected_payment_date: string
           id: string
+          is_deducted: boolean | null
           notes: string | null
           payment_date: string | null
+          payroll_id: string | null
+          remaining_amount: number | null
           request_date: string
           status: string | null
           updated_at: string | null
@@ -27,11 +31,15 @@ export type Database = {
           amount: number
           approved_by?: string | null
           created_at?: string | null
+          deduction_date?: string | null
           employee_id?: string | null
           expected_payment_date: string
           id?: string
+          is_deducted?: boolean | null
           notes?: string | null
           payment_date?: string | null
+          payroll_id?: string | null
+          remaining_amount?: number | null
           request_date: string
           status?: string | null
           updated_at?: string | null
@@ -40,11 +48,15 @@ export type Database = {
           amount?: number
           approved_by?: string | null
           created_at?: string | null
+          deduction_date?: string | null
           employee_id?: string | null
           expected_payment_date?: string
           id?: string
+          is_deducted?: boolean | null
           notes?: string | null
           payment_date?: string | null
+          payroll_id?: string | null
+          remaining_amount?: number | null
           request_date?: string
           status?: string | null
           updated_at?: string | null
@@ -70,6 +82,7 @@ export type Database = {
           notes: string | null
           status: string
           updated_at: string | null
+          work_hours: number | null
         }
         Insert: {
           check_in?: string | null
@@ -81,6 +94,7 @@ export type Database = {
           notes?: string | null
           status: string
           updated_at?: string | null
+          work_hours?: number | null
         }
         Update: {
           check_in?: string | null
@@ -92,6 +106,7 @@ export type Database = {
           notes?: string | null
           status?: string
           updated_at?: string | null
+          work_hours?: number | null
         }
         Relationships: [
           {

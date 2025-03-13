@@ -40,6 +40,31 @@ interface AttendanceTrackerProps {
 }
 
 const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
+  // Helper function to calculate work hours from check-in and check-out times
+  const calculateWorkHours = (checkIn: string, checkOut: string) => {
+    if (!checkIn || !checkOut) return 0;
+
+    const checkInTime = new Date(`2000-01-01T${checkIn}:00`);
+    const checkOutTime = new Date(`2000-01-01T${checkOut}:00`);
+
+    // If check-out is earlier than check-in, assume it's the next day
+    let timeDiff = checkOutTime.getTime() - checkInTime.getTime();
+    if (timeDiff < 0) {
+      timeDiff += 24 * 60 * 60 * 1000; // Add 24 hours
+    }
+
+    // Convert milliseconds to hours (rounded to 2 decimal places)
+    const hours = Math.round((timeDiff / (1000 * 60 * 60)) * 100) / 100;
+    return hours;
+  };
+
+  const formatWorkHours = (hours: number | string | undefined) => {
+    if (hours === undefined || hours === null) return "-";
+    if (typeof hours === "string") return hours;
+    if (hours === 0 || isNaN(hours)) return "-";
+    return `${hours} ${isRTL ? "ساعة" : "hours"}`;
+  };
+
   const { isRTL } = useLanguage();
   const { toast } = useToast();
 
@@ -114,6 +139,12 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
           (emp) => emp.id === att.employee_id,
         );
 
+        // Calculate work hours if not already stored
+        let workHours = att.work_hours;
+        if (!workHours && att.check_in && att.check_out) {
+          workHours = calculateWorkHours(att.check_in, att.check_out);
+        }
+
         return {
           id: att.id,
           employeeId: att.employee_id || "",
@@ -123,6 +154,7 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
           checkOut: att.check_out || undefined,
           status: att.status as "present" | "absent" | "late" | "on_leave",
           notes: att.notes || undefined,
+          workHours: workHours,
         };
       });
       setAttendanceRecords(formattedAttendance);
@@ -149,6 +181,7 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
       date: "التاريخ",
       checkIn: "وقت الحضور",
       checkOut: "وقت الانصراف",
+      workHours: "ساعات العمل",
       status: "الحالة",
       notes: "ملاحظات",
       actions: "الإجراءات",
@@ -184,6 +217,7 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
       date: "Date",
       checkIn: "Check In",
       checkOut: "Check Out",
+      workHours: "Work Hours",
       status: "Status",
       notes: "Notes",
       actions: "Actions",
@@ -275,21 +309,35 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
 
   const handleSaveAttendance = async (attendanceData: AttendanceData) => {
     try {
+      // Calculate work hours if check-in and check-out are provided
+      let workHours = attendanceData.workHours;
+      if (attendanceData.checkIn && attendanceData.checkOut) {
+        workHours = calculateWorkHours(
+          attendanceData.checkIn,
+          attendanceData.checkOut,
+        );
+      }
+
       // Ensure we have valid data
-      const cleanData = {
+      const cleanData: any = {
         employee_id: attendanceData.employeeId,
         date: attendanceData.date,
         status: attendanceData.status,
         notes: attendanceData.notes || null,
       };
 
+      // Only add work_hours if it's a valid number
+      if (typeof workHours === "number" && !isNaN(workHours)) {
+        cleanData.work_hours = workHours;
+      }
+
       // Only add check_in and check_out if they exist
       if (attendanceData.checkIn) {
-        Object.assign(cleanData, { check_in: attendanceData.checkIn });
+        cleanData.check_in = attendanceData.checkIn;
       }
 
       if (attendanceData.checkOut) {
-        Object.assign(cleanData, { check_out: attendanceData.checkOut });
+        cleanData.check_out = attendanceData.checkOut;
       }
 
       if (currentAttendance) {
@@ -299,7 +347,12 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
         // Update local state
         setAttendanceRecords(
           attendanceRecords.map((record) =>
-            record.id === attendanceData.id ? attendanceData : record,
+            record.id === attendanceData.id
+              ? {
+                  ...attendanceData,
+                  workHours,
+                }
+              : record,
           ),
         );
 
@@ -317,6 +370,7 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
           const newAttendance = {
             ...attendanceData,
             id: result.id,
+            workHours,
           };
           setAttendanceRecords([...attendanceRecords, newAttendance]);
         }
@@ -423,42 +477,57 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
                   <TableHead>{t.date}</TableHead>
                   <TableHead>{t.checkIn}</TableHead>
                   <TableHead>{t.checkOut}</TableHead>
+                  <TableHead>{t.workHours}</TableHead>
                   <TableHead>{t.status}</TableHead>
                   <TableHead>{t.notes}</TableHead>
                   <TableHead className="text-right">{t.actions}</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {filteredAttendanceRecords.map((record) => (
-                  <TableRow key={record.id}>
-                    <TableCell>{record.employeeName}</TableCell>
-                    <TableCell>{record.date}</TableCell>
-                    <TableCell>{record.checkIn || "-"}</TableCell>
-                    <TableCell>{record.checkOut || "-"}</TableCell>
-                    <TableCell>{getStatusBadge(record.status)}</TableCell>
-                    <TableCell>{record.notes || "-"}</TableCell>
-                    <TableCell>
-                      <div className="flex justify-end gap-2">
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleEditAttendance(record.id)}
-                          title={t.edit}
-                        >
-                          <Edit className="h-4 w-4" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleDeleteAttendance(record.id)}
-                          title={t.delete}
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    </TableCell>
-                  </TableRow>
-                ))}
+                {filteredAttendanceRecords.map((record) => {
+                  // Calculate work hours if not already available
+                  let displayWorkHours = record.workHours;
+                  if (!displayWorkHours && record.checkIn && record.checkOut) {
+                    displayWorkHours = calculateWorkHours(
+                      record.checkIn,
+                      record.checkOut,
+                    );
+                  }
+
+                  return (
+                    <TableRow key={record.id}>
+                      <TableCell>{record.employeeName}</TableCell>
+                      <TableCell>{record.date}</TableCell>
+                      <TableCell>{record.checkIn || "-"}</TableCell>
+                      <TableCell>{record.checkOut || "-"}</TableCell>
+                      <TableCell>
+                        {formatWorkHours(displayWorkHours || 0)}
+                      </TableCell>
+                      <TableCell>{getStatusBadge(record.status)}</TableCell>
+                      <TableCell>{record.notes || "-"}</TableCell>
+                      <TableCell>
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleEditAttendance(record.id)}
+                            title={t.edit}
+                          >
+                            <Edit className="h-4 w-4" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleDeleteAttendance(record.id)}
+                            title={t.delete}
+                          >
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
+                  );
+                })}
               </TableBody>
             </Table>
           </div>

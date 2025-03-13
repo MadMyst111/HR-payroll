@@ -8,18 +8,12 @@ import {
   TableRow,
 } from "@/components/ui/table";
 import { Button } from "@/components/ui/button";
-import {
-  Select,
-  SelectContent,
-  SelectItem,
-  SelectTrigger,
-  SelectValue,
-} from "@/components/ui/select";
-import { PlusCircle, Edit, Trash2, DollarSign } from "lucide-react";
-import { Badge } from "@/components/ui/badge";
+import { PlusCircle, Edit, Trash2, CheckCircle, XCircle } from "lucide-react";
 import { useLanguage } from "@/contexts/LanguageContext";
 import { Input } from "@/components/ui/input";
-import { EmployeeFormData } from "../employees/AddEmployeeForm";
+import { Badge } from "@/components/ui/badge";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { useToast } from "@/components/ui/use-toast";
 import AddAdvanceForm, { AdvanceData } from "./AddAdvanceForm";
 import {
   AlertDialog,
@@ -31,41 +25,23 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog";
-import { useSupabaseData } from "@/hooks/useSupabaseData";
-import { useToast } from "@/components/ui/use-toast";
-import { Tables } from "@/types/supabase";
 
-interface AdvancesListProps {
-  employees?: EmployeeFormData[];
-  onUpdateEmployeeAdvances?: (
-    employeeId: string,
-    advanceAmount: number,
-  ) => void;
-}
+interface AdvancesListProps {}
 
-const AdvancesList = ({
-  employees = [],
-  onUpdateEmployeeAdvances = () => {},
-}: AdvancesListProps) => {
+const AdvancesList = ({}: AdvancesListProps) => {
   const { isRTL } = useLanguage();
   const { toast } = useToast();
-
-  // Fetch data from Supabase
-  const { data: supabaseEmployees, loading: employeesLoading } =
-    useSupabaseData("employees");
-
   const {
     data: supabaseAdvances,
-    loading: advancesLoading,
-    error: advancesError,
+    loading,
+    error,
     insertRow,
     updateRow,
     deleteRow,
   } = useSupabaseData("advances");
+  const { data: supabaseEmployees } = useSupabaseData("employees");
 
   const [advances, setAdvances] = useState<AdvanceData[]>([]);
-  const [localEmployees, setLocalEmployees] =
-    useState<EmployeeFormData[]>(employees);
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [currentAdvance, setCurrentAdvance] = useState<AdvanceData | null>(
@@ -73,99 +49,53 @@ const AdvancesList = ({
   );
   const [advanceToDelete, setAdvanceToDelete] = useState<string>("");
   const [searchTerm, setSearchTerm] = useState("");
-  const [activeTab, setActiveTab] = useState<"advances" | "employees">(
-    "advances",
-  );
-  const [selectedEmployee, setSelectedEmployee] = useState<string>("all");
-
-  // Convert Supabase employees to EmployeeFormData
-  useEffect(() => {
-    if (supabaseEmployees && supabaseEmployees.length > 0) {
-      const formattedEmployees = supabaseEmployees.map((emp) => {
-        return {
-          id: emp.id,
-          name: emp.name,
-          position: emp.position,
-          department: emp.department,
-          joinDate: emp.join_date,
-          baseSalary: Number(emp.base_salary),
-          dailyRate: Number(emp.daily_rate || 0),
-          dailyRateWithIncentive: Number(emp.daily_rate_with_incentive || 0),
-          overtimeRate: Number(emp.overtime_rate || 0),
-          overtimeHours: 0,
-          monthlyIncentives: Number(emp.monthly_incentives || 0),
-          bonus: 0,
-          overtimeAmount: 0,
-          purchases: 0,
-          advances: 0,
-          absenceDays: 0,
-          absenceDeductions: 0,
-          penaltyDays: 0,
-          penalties: 0,
-          netSalary: Number(emp.base_salary),
-          totalSalaryWithIncentive:
-            Number(emp.base_salary) + Number(emp.monthly_incentives || 0),
-        };
-      });
-      setLocalEmployees(formattedEmployees);
-    }
-  }, [supabaseEmployees]);
 
   // Convert Supabase advances to AdvanceData
   useEffect(() => {
-    console.log("Supabase advances data:", supabaseAdvances);
-    console.log("Supabase employees data:", supabaseEmployees);
-
-    if (supabaseAdvances && supabaseAdvances.length > 0) {
+    if (supabaseAdvances && supabaseEmployees) {
+      console.log(
+        "Converting Supabase advances to AdvanceData:",
+        supabaseAdvances,
+      );
       const formattedAdvances = supabaseAdvances.map((adv) => {
         // Find employee name
-        const employee = supabaseEmployees?.find(
+        const employee = supabaseEmployees.find(
           (emp) => emp.id === adv.employee_id,
         );
 
-        // Ensure amount is a valid number
-        const amount =
-          typeof adv.amount === "number"
-            ? adv.amount
-            : typeof adv.amount === "string"
-              ? parseFloat(adv.amount)
-              : 0;
+        // Calculate remaining amount - use the stored value if available, otherwise use the full amount
+        const remainingAmount =
+          adv.remaining_amount !== null && adv.remaining_amount !== undefined
+            ? Number(adv.remaining_amount)
+            : Number(adv.amount);
 
-        const formattedAdvance = {
+        console.log(`Advance ${adv.id} remaining amount calculation:`, {
+          stored_remaining_amount: adv.remaining_amount,
+          amount: adv.amount,
+          calculated_remaining: remainingAmount,
+          is_deducted: adv.is_deducted,
+        });
+
+        return {
           id: adv.id,
           employeeId: adv.employee_id || "",
           employeeName: employee?.name || "Unknown Employee",
-          amount: amount,
+          amount: Number(adv.amount),
           requestDate: adv.request_date,
           expectedPaymentDate: adv.expected_payment_date,
           status: adv.status as "pending" | "approved" | "rejected" | "paid",
           approvedBy: adv.approved_by || undefined,
           paymentDate: adv.payment_date || undefined,
           notes: adv.notes || undefined,
+          isDeducted: adv.is_deducted || false,
+          deductionDate: adv.deduction_date || undefined,
+          remainingAmount: remainingAmount,
+          payrollId: adv.payroll_id || undefined,
         };
-
-        console.log(
-          `Formatted advance for ${formattedAdvance.employeeName}:`,
-          formattedAdvance,
-        );
-        return formattedAdvance;
       });
-
-      console.log("All formatted advances:", formattedAdvances);
-      // Always update the advances state to ensure we have the latest data
       setAdvances(formattedAdvances);
-    } else if (!advancesLoading && supabaseAdvances?.length === 0) {
-      // If no advances in database and employees exist, add default ones
-      if (supabaseEmployees && supabaseEmployees.length > 0) {
-        addDefaultAdvances();
-      }
     }
-  }, [supabaseAdvances, supabaseEmployees, advancesLoading]);
-
-  const addDefaultAdvances = async () => {
-    // No default advances needed - fresh start
-    return;
-  };
+  }, [supabaseAdvances, supabaseEmployees]);
 
   const labels = {
     ar: {
@@ -176,10 +106,8 @@ const AdvancesList = ({
       employeeName: "اسم الموظف",
       amount: "المبلغ",
       requestDate: "تاريخ الطلب",
-      expectedPaymentDate: "تاريخ السداد المتوقع",
+      expectedPaymentDate: "تاريخ السداد",
       status: "الحالة",
-      approvedBy: "تمت الموافقة من قبل",
-      paymentDate: "تاريخ الدفع",
       actions: "الإجراءات",
       statusLabels: {
         pending: "قيد الانتظار",
@@ -190,27 +118,24 @@ const AdvancesList = ({
       search: "بحث عن سلفة...",
       edit: "تعديل",
       delete: "حذف",
-      deductFromSalary: "خصم من الراتب",
+      approve: "موافقة",
+      reject: "رفض",
+      markAsPaid: "تم الدفع",
       deleteConfirmation: "هل أنت متأكد من حذف هذه السلفة؟",
       deleteDescription: "سيتم حذف بيانات السلفة بشكل نهائي.",
       cancel: "إلغاء",
       confirm: "تأكيد",
-      deductConfirmation: "هل تريد خصم هذه السلفة من راتب الموظف؟",
-      deductDescription:
-        "سيتم خصم قيمة السلفة من راتب الموظف وتحديث حالة السلفة إلى 'تم الدفع'.",
-      employeeAdvances: "سلف الموظفين",
-      currentAdvances: "السلف الحالية",
-      previousAdvances: "السلف السابقة",
-      totalAdvances: "إجمالي السلف",
-      remainingAdvances: "إجمالي السلف المتبقية",
-      viewEmployeeAdvances: "عرض سلف الموظف",
-      allDepartments: "جميع الموظفين",
       loading: "جاري التحميل...",
       error: "حدث خطأ أثناء تحميل البيانات",
       advanceAdded: "تمت إضافة السلفة بنجاح",
       advanceUpdated: "تم تحديث بيانات السلفة بنجاح",
       advanceDeleted: "تم حذف السلفة بنجاح",
-      advanceDeducted: "تم خصم السلفة من راتب الموظف بنجاح",
+      statusUpdated: "تم تحديث حالة السلفة بنجاح",
+      remainingAmount: "المبلغ المتبقي",
+      isDeducted: "تم الخصم",
+      deductionDate: "تاريخ الخصم",
+      yes: "نعم",
+      no: "لا",
     },
     en: {
       title: "Advances Management",
@@ -220,10 +145,8 @@ const AdvancesList = ({
       employeeName: "Employee Name",
       amount: "Amount",
       requestDate: "Request Date",
-      expectedPaymentDate: "Expected Payment Date",
+      expectedPaymentDate: "Payment Date",
       status: "Status",
-      approvedBy: "Approved By",
-      paymentDate: "Payment Date",
       actions: "Actions",
       statusLabels: {
         pending: "Pending",
@@ -234,28 +157,24 @@ const AdvancesList = ({
       search: "Search advances...",
       edit: "Edit",
       delete: "Delete",
-      deductFromSalary: "Deduct from Salary",
+      approve: "Approve",
+      reject: "Reject",
+      markAsPaid: "Mark as Paid",
       deleteConfirmation: "Are you sure you want to delete this advance?",
       deleteDescription: "This will permanently delete the advance data.",
       cancel: "Cancel",
       confirm: "Confirm",
-      deductConfirmation:
-        "Do you want to deduct this advance from the employee's salary?",
-      deductDescription:
-        "The advance amount will be deducted from the employee's salary and the status will be updated to 'Paid'.",
-      employeeAdvances: "Employee Advances",
-      currentAdvances: "Current Advances",
-      previousAdvances: "Previous Advances",
-      totalAdvances: "Total Advances",
-      remainingAdvances: "Total Remaining Advances",
-      viewEmployeeAdvances: "View Employee Advances",
-      allDepartments: "All Employees",
       loading: "Loading...",
       error: "Error loading data",
       advanceAdded: "Advance added successfully",
       advanceUpdated: "Advance updated successfully",
       advanceDeleted: "Advance deleted successfully",
-      advanceDeducted: "Advance deducted from employee's salary successfully",
+      statusUpdated: "Advance status updated successfully",
+      remainingAmount: "Remaining Amount",
+      isDeducted: "Deducted",
+      deductionDate: "Deduction Date",
+      yes: "Yes",
+      no: "No",
     },
   };
 
@@ -294,12 +213,7 @@ const AdvancesList = ({
 
   const confirmDeleteAdvance = async () => {
     try {
-      // Delete the advance from Supabase
       await deleteRow(advanceToDelete);
-
-      // Update local state manually to ensure deletion persists
-      setAdvances(advances.filter((advance) => advance.id !== advanceToDelete));
-
       toast({
         title: t.advanceDeleted,
         duration: 3000,
@@ -317,58 +231,35 @@ const AdvancesList = ({
 
   const handleSaveAdvance = async (advanceData: AdvanceData) => {
     try {
-      console.log(`Saving advance data:`, advanceData);
-
-      // Ensure amount is a valid number
-      const amount = Number(advanceData.amount) || 0;
-
       if (currentAdvance) {
         // Edit existing advance
         await updateRow(advanceData.id, {
           employee_id: advanceData.employeeId,
-          amount: amount,
+          amount: advanceData.amount,
           request_date: advanceData.requestDate,
           expected_payment_date: advanceData.expectedPaymentDate,
           status: advanceData.status,
-          approved_by: advanceData.approvedBy,
-          payment_date: advanceData.paymentDate,
-          notes: advanceData.notes,
+          approved_by: advanceData.approvedBy || null,
+          payment_date: advanceData.paymentDate || null,
+          notes: advanceData.notes || null,
+          is_deducted: advanceData.isDeducted || false,
+          deduction_date: advanceData.deductionDate || null,
+          remaining_amount: advanceData.remainingAmount || advanceData.amount,
+          payroll_id: advanceData.payrollId || null,
         });
-
-        // Manually update local state to ensure immediate UI update
-        setAdvances((prevAdvances) =>
-          prevAdvances.map((adv) =>
-            adv.id === advanceData.id ? { ...advanceData, amount } : adv,
-          ),
-        );
-
         toast({
           title: t.advanceUpdated,
           duration: 3000,
         });
       } else {
         // Add new advance
-        const result = await insertRow({
+        await insertRow({
           employee_id: advanceData.employeeId,
-          amount: amount,
+          amount: advanceData.amount,
           request_date: advanceData.requestDate,
           expected_payment_date: advanceData.expectedPaymentDate,
-          status: advanceData.status || "pending",
-          approved_by: advanceData.approvedBy || null,
-          payment_date: advanceData.paymentDate || null,
-          notes: advanceData.notes || null,
+          status: "pending", // New advances are always pending
         });
-
-        // Manually add to local state to ensure immediate UI update
-        if (result) {
-          const newAdvance = {
-            ...advanceData,
-            id: result.id,
-            amount: amount,
-          };
-          setAdvances((prevAdvances) => [...prevAdvances, newAdvance]);
-        }
-
         toast({
           title: t.advanceAdded,
           duration: 3000,
@@ -387,173 +278,56 @@ const AdvancesList = ({
     }
   };
 
-  const handleDeductFromSalary = async (advance: AdvanceData) => {
+  const handleUpdateStatus = async (
+    id: string,
+    status: AdvanceData["status"],
+  ) => {
     try {
-      console.log(`Deducting advance from salary:`, advance);
+      const updates: any = { status };
 
-      // Update the advance status to paid
-      await updateRow(advance.id, {
-        status: "paid",
-        payment_date: new Date().toISOString().split("T")[0],
-      });
+      // If approving, set approved_by
+      if (status === "approved") {
+        updates.approved_by = "HR Manager"; // In a real app, this would be the current user
+      }
 
-      // Manually update local state to ensure immediate UI update
-      setAdvances((prevAdvances) =>
-        prevAdvances.map((adv) =>
-          adv.id === advance.id
-            ? {
-                ...adv,
-                status: "paid",
-                paymentDate: new Date().toISOString().split("T")[0],
-              }
-            : adv,
-        ),
-      );
+      // If marking as paid, set payment_date
+      if (status === "paid") {
+        updates.payment_date = new Date().toISOString().split("T")[0];
+      }
 
-      // Update the employee's advances amount in payroll record
-      // Pass the advance amount to the parent component for processing
-      const advanceAmount = Number(advance.amount) || 0;
-      console.log(`Passing advance amount to parent:`, {
-        employeeId: advance.employeeId,
-        amount: advanceAmount,
-      });
-      onUpdateEmployeeAdvances(advance.employeeId, advanceAmount);
+      await updateRow(id, updates);
 
       toast({
-        title: t.advanceDeducted,
+        title: t.statusUpdated,
         duration: 3000,
       });
     } catch (error) {
-      console.error("Error deducting advance:", error);
+      console.error("Error updating advance status:", error);
       toast({
-        title: isRTL ? "حدث خطأ أثناء خصم السلفة" : "Error deducting advance",
+        title: isRTL
+          ? "حدث خطأ أثناء تحديث حالة السلفة"
+          : "Error updating advance status",
         variant: "destructive",
         duration: 3000,
       });
     }
   };
 
-  const filteredAdvances = advances.filter((advance) => {
-    const matchesSearch =
-      advance.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      advance.employeeName.toLowerCase().includes(searchTerm.toLowerCase());
-    const matchesEmployee =
-      selectedEmployee === "all" || advance.employeeId === selectedEmployee;
-    return matchesSearch && matchesEmployee;
-  });
-
-  console.log("Filtered advances:", {
-    total: advances.length,
-    filtered: filteredAdvances.length,
-    searchTerm,
-    selectedEmployee,
-  });
-
-  // Get current and previous advances for each employee
-  const employeeAdvancesData = React.useMemo(() => {
-    const data: Record<
-      string,
-      {
-        employeeId: string;
-        employeeName: string;
-        currentAdvances: number;
-        previousAdvances: number;
-        totalAdvances: number;
-        remainingAdvances: number;
-        maxAdvanceLimit: number;
-      }
-    > = {};
-
-    console.log("Calculating employee advances with:", {
-      employeesCount: localEmployees.length,
-      advancesCount: advances.length,
-      advancesData: advances,
-    });
-
-    // Initialize with all employees
-    localEmployees.forEach((emp) => {
-      // Set max advance limit to 3 months of base salary
-      const maxAdvanceLimit = emp.baseSalary * 3;
-
-      // Calculate total advances (both approved and paid)
-      let totalTakenAdvances = 0;
-      let currentPendingAdvances = 0;
-      let previousAdvances = 0;
-
-      // Count all advances for this employee
-      const employeeAdvances = advances.filter(
-        (adv) => adv.employeeId === emp.id,
-      );
-      console.log(
-        `Found ${employeeAdvances.length} advances for ${emp.name}:`,
-        employeeAdvances,
-      );
-
-      employeeAdvances.forEach((advance) => {
-        console.log(`Processing advance for ${emp.name}:`, advance);
-        // Make sure we're working with numbers
-        const advanceAmount = Number(advance.amount) || 0;
-
-        if (advance.status === "approved") {
-          currentPendingAdvances += advanceAmount;
-          totalTakenAdvances += advanceAmount;
-          console.log(
-            `Added approved advance: ${advanceAmount}, current total: ${currentPendingAdvances}`,
-          );
-        } else if (advance.status === "paid") {
-          previousAdvances += advanceAmount;
-          totalTakenAdvances += advanceAmount;
-          console.log(
-            `Added paid advance: ${advanceAmount}, previous total: ${previousAdvances}`,
-          );
-        } else if (advance.status === "pending") {
-          // Include pending advances in the current advances total
-          currentPendingAdvances += advanceAmount;
-          totalTakenAdvances += advanceAmount;
-          console.log(
-            `Added pending advance: ${advanceAmount}, current total: ${currentPendingAdvances}`,
-          );
-        } else {
-          console.log(`Unhandled advance status: ${advance.status}`);
-        }
-      });
-
-      console.log(`Final calculated advances for ${emp.name}:`, {
-        currentPendingAdvances,
-        previousAdvances,
-        totalTakenAdvances,
-      });
-
-      // Add to the data object
-      data[emp.id] = {
-        employeeId: emp.id,
-        employeeName: emp.name,
-        currentAdvances: currentPendingAdvances,
-        previousAdvances: previousAdvances,
-        totalAdvances: totalTakenAdvances,
-        remainingAdvances: totalTakenAdvances,
-        maxAdvanceLimit: maxAdvanceLimit,
-      };
-    });
-
-    console.log("Final employee advances data:", data);
-    return Object.values(data);
-  }, [advances, localEmployees]);
-
-  const filteredEmployeeAdvances = employeeAdvancesData.filter(
-    (data) =>
-      data.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
-      data.employeeId.toLowerCase().includes(searchTerm.toLowerCase()),
+  const filteredAdvances = advances.filter(
+    (advance) =>
+      advance.employeeName.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      advance.id.toString().toLowerCase().includes(searchTerm.toLowerCase()) ||
+      advance.amount.toString().includes(searchTerm),
   );
 
-  if (employeesLoading || advancesLoading) {
+  if (loading) {
     return <div className="p-8 text-center">{t.loading}</div>;
   }
 
-  if (advancesError) {
+  if (error) {
     return (
       <div className="p-8 text-center text-red-500">
-        {t.error}: {advancesError.message}
+        {t.error}: {error.message}
       </div>
     );
   }
@@ -562,165 +336,116 @@ const AdvancesList = ({
     <div className="w-full bg-white p-6 rounded-lg shadow-sm">
       <div className="flex justify-between items-center mb-6">
         <h2 className="text-2xl font-semibold">{t.title}</h2>
-        <div className="flex gap-2">
-          <Button
-            variant="outline"
-            onClick={() =>
-              setActiveTab(activeTab === "advances" ? "employees" : "advances")
-            }
-          >
-            {activeTab === "advances" ? t.employeeAdvances : t.title}
-          </Button>
-          <Button onClick={handleAddAdvance}>
-            <PlusCircle className="mr-2 h-4 w-4" />
-            {t.addAdvance}
-          </Button>
-        </div>
+        <Button onClick={handleAddAdvance}>
+          <PlusCircle className="mr-2 h-4 w-4" />
+          {t.addAdvance}
+        </Button>
       </div>
 
-      <div className="mb-4 flex gap-4">
+      <div className="mb-4">
         <Input
           placeholder={t.search}
           value={searchTerm}
           onChange={(e) => setSearchTerm(e.target.value)}
           className="max-w-sm"
         />
-        {activeTab === "advances" && (
-          <Select value={selectedEmployee} onValueChange={setSelectedEmployee}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue placeholder={t.employeeName} />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t.allDepartments}</SelectItem>
-              {localEmployees.map((employee) => (
-                <SelectItem key={employee.id} value={employee.id}>
-                  {employee.name}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        )}
       </div>
 
-      {activeTab === "advances" ? (
-        <div className="overflow-x-auto table-container">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t.id}</TableHead>
-                <TableHead>{t.employeeName}</TableHead>
-                <TableHead className="text-right">{t.amount}</TableHead>
-                <TableHead>{t.requestDate}</TableHead>
-                <TableHead>{t.expectedPaymentDate}</TableHead>
-                <TableHead>{t.status}</TableHead>
-                <TableHead>{t.paymentDate}</TableHead>
-                <TableHead className="text-right">{t.actions}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredAdvances.map((advance) => (
-                <TableRow key={advance.id}>
-                  <TableCell>{advance.id.substring(0, 8)}</TableCell>
-                  <TableCell>{advance.employeeName}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {advance.amount} ج.م
-                  </TableCell>
-                  <TableCell>{advance.requestDate}</TableCell>
-                  <TableCell>{advance.expectedPaymentDate}</TableCell>
-                  <TableCell>{getStatusBadge(advance.status)}</TableCell>
-                  <TableCell>{advance.paymentDate || "-"}</TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleEditAdvance(advance.id)}
-                        title={t.edit}
-                      >
-                        <Edit className="h-4 w-4" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        onClick={() => handleDeleteAdvance(advance.id)}
-                        title={t.delete}
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </Button>
-                      {advance.status === "approved" && (
+      <div className="overflow-x-auto table-container">
+        <Table>
+          <TableHeader>
+            <TableRow>
+              <TableHead className="w-[80px]">{t.id}</TableHead>
+              <TableHead>{t.employeeName}</TableHead>
+              <TableHead className="text-right">{t.amount}</TableHead>
+              <TableHead className="text-right">{t.remainingAmount}</TableHead>
+              <TableHead>{t.requestDate}</TableHead>
+              {/* Expected payment date column removed */}
+              <TableHead>{t.status}</TableHead>
+              <TableHead>{t.isDeducted}</TableHead>
+              <TableHead className="text-right">{t.actions}</TableHead>
+            </TableRow>
+          </TableHeader>
+          <TableBody>
+            {filteredAdvances.map((advance) => (
+              <TableRow key={advance.id}>
+                <TableCell>{advance.id.toString().substring(0, 8)}</TableCell>
+                <TableCell>{advance.employeeName}</TableCell>
+                <TableCell className="text-right">
+                  {advance.amount} ج.م
+                </TableCell>
+                <TableCell className="text-right">
+                  {advance.remainingAmount !== undefined &&
+                  advance.remainingAmount !== null
+                    ? advance.remainingAmount
+                    : advance.amount}{" "}
+                  ج.م
+                </TableCell>
+                <TableCell>{advance.requestDate}</TableCell>
+                {/* Expected payment date cell removed */}
+                <TableCell>{getStatusBadge(advance.status)}</TableCell>
+                <TableCell>{advance.isDeducted ? t.yes : t.no}</TableCell>
+                <TableCell className="text-right">
+                  <div className="flex justify-end gap-2">
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleEditAdvance(advance.id)}
+                      title={t.edit}
+                    >
+                      <Edit className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="ghost"
+                      size="icon"
+                      onClick={() => handleDeleteAdvance(advance.id)}
+                      title={t.delete}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+
+                    {advance.status === "pending" && (
+                      <>
                         <Button
                           variant="ghost"
                           size="icon"
-                          onClick={() => handleDeductFromSalary(advance)}
-                          title={t.deductFromSalary}
+                          onClick={() =>
+                            handleUpdateStatus(advance.id, "approved")
+                          }
+                          title={t.approve}
                         >
-                          <DollarSign className="h-4 w-4" />
+                          <CheckCircle className="h-4 w-4 text-green-500" />
                         </Button>
-                      )}
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      ) : (
-        <div className="overflow-x-auto table-container">
-          <Table>
-            <TableHeader>
-              <TableRow>
-                <TableHead>{t.employeeId}</TableHead>
-                <TableHead>{t.employeeName}</TableHead>
-                <TableHead className="text-right">
-                  {t.currentAdvances}
-                </TableHead>
-                <TableHead className="text-right">
-                  {t.previousAdvances}
-                </TableHead>
-                <TableHead className="text-right">{t.totalAdvances}</TableHead>
-                <TableHead className="text-right">
-                  {t.remainingAdvances}
-                </TableHead>
-                <TableHead className="text-right">{t.actions}</TableHead>
-              </TableRow>
-            </TableHeader>
-            <TableBody>
-              {filteredEmployeeAdvances.map((data) => (
-                <TableRow key={data.employeeId}>
-                  <TableCell>{data.employeeId.substring(0, 8)}</TableCell>
-                  <TableCell>{data.employeeName}</TableCell>
-                  <TableCell className="text-right font-medium">
-                    {data.currentAdvances} ج.م
-                  </TableCell>
-                  <TableCell className="text-right">
-                    {data.previousAdvances} ج.م
-                  </TableCell>
-                  <TableCell className="text-right font-bold">
-                    {data.totalAdvances} ج.م
-                  </TableCell>
-                  <TableCell className="text-right font-medium">
-                    {data.remainingAdvances} ج.م
-                  </TableCell>
-                  <TableCell>
-                    <div className="flex justify-end gap-2">
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          onClick={() =>
+                            handleUpdateStatus(advance.id, "rejected")
+                          }
+                          title={t.reject}
+                        >
+                          <XCircle className="h-4 w-4 text-red-500" />
+                        </Button>
+                      </>
+                    )}
+
+                    {advance.status === "approved" && (
                       <Button
                         variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          setSelectedEmployee(data.employeeId);
-                          setActiveTab("advances");
-                        }}
+                        size="icon"
+                        onClick={() => handleUpdateStatus(advance.id, "paid")}
+                        title={t.markAsPaid}
                       >
-                        {t.viewEmployeeAdvances}
+                        <CheckCircle className="h-4 w-4 text-blue-500" />
                       </Button>
-                    </div>
-                  </TableCell>
-                </TableRow>
-              ))}
-            </TableBody>
-          </Table>
-        </div>
-      )}
+                    )}
+                  </div>
+                </TableCell>
+              </TableRow>
+            ))}
+          </TableBody>
+        </Table>
+      </div>
 
       {isAddDialogOpen && (
         <AddAdvanceForm
@@ -728,7 +453,7 @@ const AdvancesList = ({
           onClose={() => setIsAddDialogOpen(false)}
           onSave={handleSaveAdvance}
           initialData={currentAdvance || undefined}
-          employees={localEmployees}
+          employees={supabaseEmployees || []}
         />
       )}
 

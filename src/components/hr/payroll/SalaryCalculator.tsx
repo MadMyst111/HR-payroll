@@ -20,6 +20,10 @@ import {
 import { useLanguage } from "@/contexts/LanguageContext";
 import { EmployeeFormData } from "../employees/AddEmployeeForm";
 import { AdvanceData } from "../advances/AddAdvanceForm";
+import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { useToast } from "@/components/ui/use-toast";
+import { Badge } from "@/components/ui/badge";
+import { supabase } from "@/lib/supabase";
 
 interface SalaryCalculatorProps {
   employees: EmployeeFormData[];
@@ -50,6 +54,7 @@ const SalaryCalculator = ({
   onSave,
 }: SalaryCalculatorProps) => {
   const { isRTL } = useLanguage();
+  const { toast } = useToast();
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [calculationData, setCalculationData] =
     useState<EmployeeFormData | null>(null);
@@ -60,6 +65,13 @@ const SalaryCalculator = ({
   const [selectedYear, setSelectedYear] = useState<string>(
     new Date().getFullYear().toString(),
   );
+
+  // For tracking advances deduction
+  const [advancesToDeduct, setAdvancesToDeduct] = useState<AdvanceData[]>([]);
+  const [deductedAdvances, setDeductedAdvances] = useState<string[]>([]);
+
+  // Supabase data access for updating advances
+  const { updateRow: updateAdvance } = useSupabaseData("advances");
 
   const labels = {
     ar: {
@@ -95,6 +107,14 @@ const SalaryCalculator = ({
       year: "السنة",
       days: "يوم",
       daysInMonth: "عدد أيام الشهر",
+      advancesToDeduct: "السلف للخصم",
+      deductAdvances: "خصم السلف",
+      advanceAmount: "مبلغ السلفة",
+      remainingAmount: "المبلغ المتبقي",
+      deductionAmount: "مبلغ الخصم",
+      deductAll: "خصم الكل",
+      advancesDeducted: "تم خصم السلف بنجاح",
+      applyAllAdvances: "تطبيق كل السلف",
     },
     en: {
       title: "Salary Calculator",
@@ -129,6 +149,14 @@ const SalaryCalculator = ({
       year: "Year",
       days: "days",
       daysInMonth: "Days in Month",
+      advancesToDeduct: "Advances to Deduct",
+      deductAdvances: "Deduct Advances",
+      advanceAmount: "Advance Amount",
+      remainingAmount: "Remaining Amount",
+      deductionAmount: "Deduction Amount",
+      deductAll: "Deduct All",
+      advancesDeducted: "Advances deducted successfully",
+      applyAllAdvances: "Apply All Advances",
     },
   };
 
@@ -144,12 +172,25 @@ const SalaryCalculator = ({
       // Get pending advances for this employee
       const employeeAdvances = advances.filter(
         (adv) =>
-          adv.employeeId === selectedEmployeeId && adv.status === "approved",
+          adv.employeeId === selectedEmployeeId &&
+          adv.status === "approved" &&
+          (adv.isDeducted === undefined ||
+            adv.isDeducted === null ||
+            adv.isDeducted === false ||
+            (adv.remainingAmount !== undefined &&
+              adv.remainingAmount !== null &&
+              adv.remainingAmount > 0)),
       );
       setPendingAdvances(employeeAdvances);
+
+      // Reset advances to deduct
+      setAdvancesToDeduct([]);
+      setDeductedAdvances([]);
     } else {
       setCalculationData(null);
       setPendingAdvances([]);
+      setAdvancesToDeduct([]);
+      setDeductedAdvances([]);
     }
   }, [selectedEmployeeId, employees, advances]);
 
@@ -332,12 +373,18 @@ const SalaryCalculator = ({
       // Use setTimeout to ensure the state is updated before saving
       setTimeout(() => {
         onSave(calculationData);
-        toast({
-          title: isRTL
-            ? "تم حفظ بيانات الراتب بنجاح"
-            : "Salary data saved successfully",
-          duration: 3000,
-        });
+
+        // Automatically deduct advances if there are any to deduct
+        if (advancesToDeduct.length > 0) {
+          deductAdvances();
+        } else {
+          toast({
+            title: isRTL
+              ? "تم حفظ بيانات الراتب بنجاح"
+              : "Salary data saved successfully",
+            duration: 3000,
+          });
+        }
       }, 100);
     }
   };
@@ -351,6 +398,7 @@ const SalaryCalculator = ({
     }
   };
 
+  // Apply a single advance to the deductions
   const applyAdvance = (advanceId: string) => {
     const advance = pendingAdvances.find((adv) => adv.id === advanceId);
     if (!advance || !calculationData) return;
@@ -359,7 +407,8 @@ const SalaryCalculator = ({
     setCalculationData((prev) => {
       if (!prev) return null;
 
-      const updatedAdvances = prev.advances + advance.amount;
+      const updatedAdvances =
+        prev.advances + (advance.remainingAmount || advance.amount);
       const updatedData = { ...prev, advances: updatedAdvances };
 
       // Recalculate net salary (without monthly incentives)
@@ -377,8 +426,226 @@ const SalaryCalculator = ({
       return updatedData;
     });
 
-    // Remove advance from pending advances
-    setPendingAdvances(pendingAdvances.filter((adv) => adv.id !== advanceId));
+    // Add to advances to deduct
+    addAdvanceToDeduct(advance);
+  };
+
+  // Add advance to the list of advances to deduct
+  const addAdvanceToDeduct = (advance: AdvanceData) => {
+    if (!advancesToDeduct.some((adv) => adv.id === advance.id)) {
+      setAdvancesToDeduct([...advancesToDeduct, advance]);
+    }
+  };
+
+  // Remove advance from the list of advances to deduct
+  const removeAdvanceToDeduct = (advanceId: string) => {
+    setAdvancesToDeduct(advancesToDeduct.filter((adv) => adv.id !== advanceId));
+  };
+
+  // Deduct all selected advances
+  const deductAdvances = async () => {
+    if (!calculationData || advancesToDeduct.length === 0) return;
+
+    console.log("Starting deduction of advances:", advancesToDeduct);
+
+    // Use the total advances amount from the calculationData
+    const totalDeduction = calculationData.advances;
+    const currentDate = new Date().toISOString().split("T")[0];
+    const payrollId = `PR-${selectedEmployeeId}-${selectedMonth}-${selectedYear}`;
+
+    // Distribute the total deduction amount proportionally among all advances
+    const totalAdvancesAmount = advancesToDeduct.reduce(
+      (sum, adv) => sum + (adv.remainingAmount || adv.amount),
+      0,
+    );
+
+    // Process each advance
+    for (const advance of advancesToDeduct) {
+      console.log(`Processing advance ${advance.id} for deduction:`, advance);
+      try {
+        // Calculate proportional deduction for this advance
+        const proportion =
+          (advance.remainingAmount || advance.amount) / totalAdvancesAmount;
+        const amountToDeduct = Math.min(
+          Math.round(totalDeduction * proportion * 100) / 100, // Round to 2 decimal places
+          advance.remainingAmount || advance.amount,
+        );
+
+        if (amountToDeduct <= 0) {
+          continue; // Skip if no amount to deduct
+        }
+
+        // Calculate remaining amount after deduction
+        const originalAmount = advance.remainingAmount || advance.amount;
+        const newRemainingAmount = Math.max(0, originalAmount - amountToDeduct);
+        const isFullyDeducted = newRemainingAmount === 0;
+
+        console.log(`Deduction details for advance ${advance.id}:`, {
+          originalAmount,
+          amountToDeduct,
+          newRemainingAmount,
+          isFullyDeducted,
+        });
+
+        // First, directly update the database to ensure the changes are saved
+        // This bypasses any potential caching issues
+        const { data: directUpdateResult, error: directUpdateError } =
+          await supabase
+            .from("advances")
+            .update({
+              is_deducted: true,
+              deduction_date: currentDate,
+              remaining_amount: newRemainingAmount,
+              payroll_id: payrollId,
+              status: isFullyDeducted ? "paid" : "approved",
+              updated_at: new Date().toISOString(),
+            })
+            .eq("id", advance.id)
+            .select();
+
+        if (directUpdateError) {
+          console.error(
+            `Direct update error for advance ${advance.id}:`,
+            directUpdateError,
+          );
+          throw directUpdateError;
+        }
+
+        console.log(
+          `Direct update result for advance ${advance.id}:`,
+          directUpdateResult,
+        );
+
+        // Then use the hook method to ensure state is updated
+        const result = await updateAdvance(advance.id, {
+          is_deducted: true,
+          deduction_date: currentDate,
+          remaining_amount: newRemainingAmount,
+          payroll_id: payrollId,
+          status: isFullyDeducted ? "paid" : "approved",
+          updated_at: new Date().toISOString(),
+        });
+
+        console.log(`Hook update result for advance ${advance.id}:`, result);
+
+        // Force multiple refreshes of the specific advance data
+        try {
+          // First immediate refresh
+          const { data: refreshResult1 } = await supabase
+            .from("advances")
+            .select("*")
+            .eq("id", advance.id)
+            .single();
+
+          console.log("First forced refresh of advance data:", refreshResult1);
+
+          // Second refresh after a short delay
+          setTimeout(async () => {
+            try {
+              const { data: refreshResult2 } = await supabase
+                .from("advances")
+                .select("*")
+                .eq("id", advance.id)
+                .single();
+
+              console.log(
+                "Second forced refresh of advance data:",
+                refreshResult2,
+              );
+            } catch (error) {
+              console.error("Error in second refresh:", error);
+            }
+          }, 500);
+        } catch (refreshError) {
+          console.error("Error refreshing advance data:", refreshError);
+        }
+
+        // Update the UI
+        setPendingAdvances((prev) => {
+          return prev
+            .map((adv) => {
+              if (adv.id === advance.id) {
+                return {
+                  ...adv,
+                  remainingAmount: newRemainingAmount,
+                  isDeducted: true,
+                  deductionDate: currentDate,
+                  status: isFullyDeducted ? "paid" : "approved",
+                };
+              }
+              return adv;
+            })
+            .filter((adv) => adv.remainingAmount > 0);
+        });
+
+        // Add to deducted advances list
+        setDeductedAdvances([...deductedAdvances, advance.id]);
+      } catch (error) {
+        console.error(`Error deducting advance ${advance.id}:`, error);
+      }
+    }
+
+    // Save the updated salary data
+    handleSave();
+
+    // Clear the advances to deduct list
+    setAdvancesToDeduct([]);
+
+    // Show success message
+    toast({
+      title: t.advancesDeducted,
+      description: isRTL
+        ? "تم تحديث السلف بنجاح"
+        : "Advances updated successfully",
+      duration: 3000,
+    });
+
+    // Force multiple refreshes of all advances data with increasing delays
+    try {
+      console.log("Forcing first refresh of all advances data");
+      const { data: refreshResult1 } = await supabase
+        .from("advances")
+        .select("*");
+
+      console.log(
+        "First refresh of all advances data complete:",
+        refreshResult1?.length || 0,
+        "records",
+      );
+
+      // Second refresh after a delay
+      setTimeout(async () => {
+        try {
+          console.log("Forcing second refresh of all advances data");
+          const { data: refreshResult2 } = await supabase
+            .from("advances")
+            .select("*");
+
+          console.log(
+            "Second refresh of all advances data complete:",
+            refreshResult2?.length || 0,
+            "records",
+          );
+
+          // Third refresh after a longer delay
+          setTimeout(async () => {
+            try {
+              console.log("Forcing third refresh of all advances data");
+              await supabase.from("advances").select("*");
+
+              // Force a page reload to ensure all data is fresh
+              window.location.reload();
+            } catch (error) {
+              console.error("Error in third refresh:", error);
+            }
+          }, 1000);
+        } catch (error) {
+          console.error("Error in second refresh:", error);
+        }
+      }, 500);
+    } catch (refreshError) {
+      console.error("Error in first refresh of advances data:", refreshError);
+    }
   };
 
   const getTotalEarnings = () => {
@@ -557,13 +824,60 @@ const SalaryCalculator = ({
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="advances">{t.advances}</Label>
-                    <Input
-                      id="advances"
-                      name="advances"
-                      type="number"
-                      value={calculationData.advances}
-                      onChange={handleChange}
-                    />
+                    <div className="flex gap-2">
+                      <Input
+                        id="advances"
+                        name="advances"
+                        type="number"
+                        value={calculationData.advances}
+                        onChange={handleChange}
+                      />
+                      {pendingAdvances.length > 0 && (
+                        <Button
+                          type="button"
+                          size="sm"
+                          onClick={() => {
+                            // Apply all pending advances to the deductions
+                            const totalAdvances = pendingAdvances.reduce(
+                              (sum, adv) =>
+                                sum + (adv.remainingAmount || adv.amount),
+                              0,
+                            );
+
+                            // Update the advances field
+                            setCalculationData((prev) => {
+                              if (!prev) return null;
+                              const updatedData = {
+                                ...prev,
+                                advances: totalAdvances,
+                              };
+
+                              // Recalculate net salary
+                              const totalEarnings =
+                                updatedData.baseSalary +
+                                updatedData.bonus +
+                                updatedData.overtimeAmount;
+
+                              const totalDeductions =
+                                updatedData.purchases +
+                                updatedData.advances +
+                                updatedData.absenceDeductions +
+                                updatedData.penalties;
+
+                              updatedData.netSalary =
+                                totalEarnings - totalDeductions;
+
+                              return updatedData;
+                            });
+
+                            // Add all advances to deduct list
+                            setAdvancesToDeduct(pendingAdvances);
+                          }}
+                        >
+                          {isRTL ? "تطبيق الكل" : "Apply All"}
+                        </Button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="dailyRate">{t.dailyRate}</Label>
@@ -693,29 +1007,47 @@ const SalaryCalculator = ({
               </div>
             )}
 
-            {pendingAdvances.length > 0 && (
-              <div className="space-y-4 border-t pt-4">
-                <h3 className="text-lg font-medium">{t.pendingAdvances}</h3>
-                <div className="space-y-2">
-                  {pendingAdvances.map((advance) => (
-                    <div
-                      key={advance.id}
-                      className="flex justify-between items-center p-2 border rounded"
-                    >
-                      <div>
-                        <div className="font-medium">{advance.amount} ج.م</div>
-                        <div className="text-sm text-muted-foreground">
-                          {advance.requestDate}
-                        </div>
+            {/* Hidden section for advances deduction - now integrated with the main advances field */}
+            <div className="hidden">
+              {pendingAdvances.length > 0 && (
+                <div className="space-y-4 border-t pt-4">
+                  <h3 className="text-lg font-medium">{t.advancesToDeduct}</h3>
+                  <div className="space-y-2 mb-4">
+                    {pendingAdvances.map((advance) => (
+                      <div key={advance.id}>
+                        <Input
+                          id={`deduction-amount-${advance.id}`}
+                          type="hidden"
+                          defaultValue={
+                            advance.remainingAmount !== undefined &&
+                            advance.remainingAmount !== null
+                              ? advance.remainingAmount.toString()
+                              : advance.amount.toString()
+                          }
+                        />
                       </div>
-                      <Button
-                        size="sm"
-                        onClick={() => applyAdvance(advance.id)}
-                      >
-                        {t.applyAdvance}
-                      </Button>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Info message about advances that will be deducted when saving */}
+            {advancesToDeduct.length > 0 && (
+              <div className="mt-4 p-4 rounded-lg bg-amber-50 dark:bg-amber-950/20 border border-amber-100 dark:border-amber-900/30">
+                <div className="flex items-center">
+                  <div>
+                    <h3 className="text-lg font-medium">
+                      {isRTL
+                        ? "سيتم خصم السلف عند الحفظ"
+                        : "Advances will be deducted when saving"}
+                    </h3>
+                    <p className="text-sm text-muted-foreground">
+                      {isRTL
+                        ? `سيتم خصم ${advancesToDeduct.length} سلفة بقيمة ${calculationData.advances} ج.م عند النقر على زر الحفظ`
+                        : `${advancesToDeduct.length} advances will be deducted for a total of ${calculationData.advances} EGP when clicking Save`}
+                    </p>
+                  </div>
                 </div>
               </div>
             )}

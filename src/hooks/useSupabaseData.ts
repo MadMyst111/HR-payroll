@@ -87,6 +87,50 @@ export function useSupabaseData<T extends TableName>(
             payload,
           );
 
+          // Force a refresh of data after any change to ensure we have the latest data
+          if (tableName === "advances" || tableName === "payroll") {
+            console.log(`Forcing refresh of ${tableName} data`);
+            // Use multiple refreshes with increasing delays to ensure we get the latest data
+            setTimeout(() => {
+              console.log(`First refresh attempt for ${tableName}`);
+              fetchData();
+
+              // Second refresh after a longer delay
+              setTimeout(() => {
+                console.log(`Second refresh attempt for ${tableName}`);
+                fetchData();
+
+                // Third refresh after an even longer delay
+                setTimeout(() => {
+                  console.log(`Third refresh attempt for ${tableName}`);
+                  fetchData();
+
+                  // Fourth refresh after an even longer delay
+                  setTimeout(() => {
+                    console.log(`Fourth refresh attempt for ${tableName}`);
+                    fetchData();
+
+                    // Fifth refresh after an even longer delay
+                    setTimeout(() => {
+                      console.log(`Fifth refresh attempt for ${tableName}`);
+                      fetchData();
+
+                      // If this is advances data, consider reloading the page
+                      if (tableName === "advances") {
+                        console.log(
+                          "Advances data updated, considering page reload",
+                        );
+                        // Uncomment to enable automatic page reload
+                        // window.location.reload();
+                      }
+                    }, 2500);
+                  }, 2000);
+                }, 1500);
+              }, 1000);
+            }, 500);
+            return;
+          }
+
           // Handle different types of changes
           if (payload.eventType === "INSERT") {
             setData((prevData) => {
@@ -98,11 +142,32 @@ export function useSupabaseData<T extends TableName>(
               return [...prevData, payload.new as TableRow];
             });
           } else if (payload.eventType === "UPDATE") {
-            setData((prevData) =>
-              prevData.map((item) =>
+            setData((prevData) => {
+              // Check if the item exists and if the update actually changes anything
+              const existingItem = prevData.find(
+                (item) => item.id === payload.new.id,
+              );
+              if (!existingItem) {
+                // Item doesn't exist, add it
+                return [...prevData, payload.new as TableRow];
+              }
+
+              // Special handling for advances with remaining_amount
+              if (
+                tableName === "advances" &&
+                "remaining_amount" in payload.new
+              ) {
+                console.log(
+                  `Updating advance ${payload.new.id} with remaining_amount:`,
+                  payload.new.remaining_amount,
+                );
+              }
+
+              // Update the item
+              return prevData.map((item) =>
                 item.id === payload.new.id ? (payload.new as TableRow) : item,
-              ),
-            );
+              );
+            });
           } else if (payload.eventType === "DELETE") {
             setData((prevData) =>
               prevData.filter((item) => item.id !== payload.old.id),
@@ -163,14 +228,24 @@ export function useSupabaseData<T extends TableName>(
 
   const updateRow = async (id: string, updates: Partial<TableRow>) => {
     try {
+      console.log(`Updating ${tableName} with ID ${id}:`, updates);
+
       const { data, error } = await supabase
         .from(tableName)
         .update({ ...updates, updated_at: new Date().toISOString() } as any)
         .eq("id", id)
         .select();
 
-      if (error) throw error;
-      return data[0];
+      if (error) {
+        console.error(`Error updating ${tableName}:`, error);
+        throw error;
+      }
+
+      console.log(
+        `Successfully updated ${tableName} with ID ${id}:`,
+        data?.[0],
+      );
+      return data?.[0];
     } catch (err) {
       console.error(`Error updating ${tableName}:`, err);
       throw err;
