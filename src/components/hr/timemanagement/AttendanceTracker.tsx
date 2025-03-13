@@ -275,16 +275,26 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
 
   const handleSaveAttendance = async (attendanceData: AttendanceData) => {
     try {
+      // Ensure we have valid data
+      const cleanData = {
+        employee_id: attendanceData.employeeId,
+        date: attendanceData.date,
+        status: attendanceData.status,
+        notes: attendanceData.notes || null,
+      };
+
+      // Only add check_in and check_out if they exist
+      if (attendanceData.checkIn) {
+        Object.assign(cleanData, { check_in: attendanceData.checkIn });
+      }
+
+      if (attendanceData.checkOut) {
+        Object.assign(cleanData, { check_out: attendanceData.checkOut });
+      }
+
       if (currentAttendance) {
         // Edit existing attendance record
-        await updateRow(attendanceData.id, {
-          employee_id: attendanceData.employeeId,
-          date: attendanceData.date,
-          check_in: attendanceData.checkIn,
-          check_out: attendanceData.checkOut,
-          status: attendanceData.status,
-          notes: attendanceData.notes,
-        });
+        await updateRow(attendanceData.id, cleanData);
 
         // Update local state
         setAttendanceRecords(
@@ -299,14 +309,8 @@ const AttendanceTracker = ({ employees = [] }: AttendanceTrackerProps) => {
         });
       } else {
         // Add new attendance record
-        const result = await insertRow({
-          employee_id: attendanceData.employeeId,
-          date: attendanceData.date,
-          check_in: attendanceData.checkIn,
-          check_out: attendanceData.checkOut,
-          status: attendanceData.status,
-          notes: attendanceData.notes,
-        });
+        console.log("Inserting attendance record with data:", cleanData);
+        const result = await insertRow(cleanData);
 
         // Add to local state with the returned ID
         if (result) {

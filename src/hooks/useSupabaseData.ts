@@ -56,7 +56,13 @@ export function useSupabaseData<T extends TableName>(
 
         if (error) throw error;
 
-        setData(result as TableRow[]);
+        console.log(`Fetched ${tableName} data:`, result);
+        if (result) {
+          setData(result as TableRow[]);
+        } else {
+          console.warn(`No data returned for ${tableName}`);
+          setData([]);
+        }
       } catch (err) {
         console.error("Error fetching data from Supabase:", err);
         setError(err instanceof Error ? err : new Error(String(err)));
@@ -115,12 +121,39 @@ export function useSupabaseData<T extends TableName>(
     row: Omit<TableRow, "id" | "created_at" | "updated_at">,
   ) => {
     try {
+      // Clean up the row data to ensure no undefined values and handle null values properly
+      const cleanRow = Object.entries(row).reduce(
+        (acc, [key, value]) => {
+          // Only include properties that have values (not undefined)
+          // Explicitly keep null values as they're different from undefined
+          if (value !== undefined) {
+            acc[key] = value;
+          }
+          return acc;
+        },
+        {} as Record<string, any>,
+      );
+
+      console.log(`Inserting into ${tableName} with data:`, cleanRow);
+
       const { data, error } = await supabase
         .from(tableName)
-        .insert(row as any)
+        .insert(cleanRow)
         .select();
 
-      if (error) throw error;
+      if (error) {
+        console.error(`Error details for ${tableName}:`, error);
+        console.error(`Error code: ${error.code}, Message: ${error.message}`);
+        console.error(`Error details:`, error.details);
+        throw error;
+      }
+
+      if (!data || data.length === 0) {
+        console.error(`No data returned after insert into ${tableName}`);
+        throw new Error(`Failed to insert data into ${tableName}`);
+      }
+
+      console.log(`Successfully inserted into ${tableName}:`, data[0]);
       return data[0];
     } catch (err) {
       console.error(`Error inserting into ${tableName}:`, err);

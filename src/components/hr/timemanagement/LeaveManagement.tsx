@@ -300,19 +300,26 @@ const LeaveManagement = ({ employees = [] }: LeaveManagementProps) => {
 
   const handleSaveLeaveRequest = async (leaveRequestData: LeaveRequestData) => {
     try {
+      // Ensure we have valid data
+      const cleanData = {
+        employee_id: leaveRequestData.employeeId,
+        leave_type: leaveRequestData.leaveType,
+        start_date: leaveRequestData.startDate,
+        end_date: leaveRequestData.endDate,
+        total_days: leaveRequestData.totalDays,
+        reason: leaveRequestData.reason || null,
+      };
+
       if (currentLeaveRequest) {
-        // Edit existing leave request
-        await updateRow(leaveRequestData.id, {
-          employee_id: leaveRequestData.employeeId,
-          leave_type: leaveRequestData.leaveType,
-          start_date: leaveRequestData.startDate,
-          end_date: leaveRequestData.endDate,
-          total_days: leaveRequestData.totalDays,
-          reason: leaveRequestData.reason,
+        // Edit existing leave request - add optional fields
+        const updateData = {
+          ...cleanData,
           status: leaveRequestData.status,
-          approved_by: leaveRequestData.approvedBy,
-          notes: leaveRequestData.notes,
-        });
+          approved_by: leaveRequestData.approvedBy || null,
+          notes: leaveRequestData.notes || null,
+        };
+
+        await updateRow(leaveRequestData.id, updateData);
 
         // Update local state
         setLeaveRequests(
@@ -326,16 +333,14 @@ const LeaveManagement = ({ employees = [] }: LeaveManagementProps) => {
           duration: 3000,
         });
       } else {
-        // Add new leave request
-        const result = await insertRow({
-          employee_id: leaveRequestData.employeeId,
-          leave_type: leaveRequestData.leaveType,
-          start_date: leaveRequestData.startDate,
-          end_date: leaveRequestData.endDate,
-          total_days: leaveRequestData.totalDays,
-          reason: leaveRequestData.reason,
+        // Add new leave request - always pending status
+        const insertData = {
+          ...cleanData,
           status: "pending", // New requests are always pending
-        });
+        };
+
+        console.log("Inserting leave request with data:", insertData);
+        const result = await insertRow(insertData);
 
         // Add to local state with the returned ID
         if (result) {

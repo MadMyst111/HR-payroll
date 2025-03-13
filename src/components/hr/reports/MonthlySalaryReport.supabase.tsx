@@ -99,10 +99,10 @@ const MonthlySalaryReport = () => {
 
   const [searchTerm, setSearchTerm] = useState("");
   const [selectedMonth, setSelectedMonth] = useState(
-    new Date().getMonth() + 1 + "",
+    (new Date().getMonth() + 1).toString().padStart(2, "0"),
   );
   const [selectedYear, setSelectedYear] = useState(
-    new Date().getFullYear() + "",
+    new Date().getFullYear().toString(),
   );
   const [selectedDepartment, setSelectedDepartment] = useState("all");
   const [employees, setEmployees] = useState<EmployeeReportData[]>([]);
@@ -114,59 +114,84 @@ const MonthlySalaryReport = () => {
       const monthNum = parseInt(selectedMonth);
       const yearNum = parseInt(selectedYear);
 
-      const employeeData = supabaseEmployees.map((emp) => {
-        // Find payroll record for this employee in the selected month/year
-        const payrollRecord = supabasePayroll.find(
-          (p) =>
-            p.employee_id === emp.id &&
-            p.month === monthNum &&
-            p.year === yearNum,
-        );
+      // Get all employees with payroll records for the selected month/year
+      const employeesWithPayroll = supabasePayroll
+        .filter((p) => p.month === monthNum && p.year === yearNum)
+        .map((payrollRecord) => {
+          // Find the corresponding employee
+          const employee = supabaseEmployees.find(
+            (emp) => emp.id === payrollRecord.employee_id,
+          );
 
-        // Use payroll data if available, otherwise use employee data with defaults
-        return {
+          // Only include if employee still exists
+          if (!employee) return null;
+
+          return {
+            id: employee.id,
+            name: employee.name,
+            position: employee.position,
+            department: employee.department,
+            baseSalary: Number(payrollRecord.base_salary),
+            dailyRate: Number(
+              payrollRecord.daily_rate || employee.daily_rate || 0,
+            ),
+            dailyRateWithIncentive: Number(
+              payrollRecord.daily_rate_with_incentive ||
+                employee.daily_rate_with_incentive ||
+                0,
+            ),
+            monthlyIncentives: Number(payrollRecord.monthly_incentives || 0),
+            bonus: Number(payrollRecord.bonus || 0),
+            overtimeAmount: Number(payrollRecord.overtime_amount || 0),
+            purchases: Number(payrollRecord.purchases || 0),
+            advances: Number(payrollRecord.advances || 0),
+            absenceDays: Number(payrollRecord.absence_days || 0),
+            absenceDeductions: Number(payrollRecord.absence_deductions || 0),
+            penaltyDays: Number(payrollRecord.penalty_days || 0),
+            penalties: Number(payrollRecord.penalties || 0),
+            netSalary: Number(payrollRecord.net_salary),
+            totalSalaryWithIncentive: Number(
+              payrollRecord.total_salary_with_incentive,
+            ),
+          };
+        })
+        .filter(Boolean); // Remove null entries
+
+      // Add current employees without payroll records
+      const employeesWithoutPayroll = supabaseEmployees
+        .filter((emp) => {
+          // Check if employee already has a payroll record for this month/year
+          return !supabasePayroll.some(
+            (p) =>
+              p.employee_id === emp.id &&
+              p.month === monthNum &&
+              p.year === yearNum,
+          );
+        })
+        .map((emp) => ({
           id: emp.id,
           name: emp.name,
           position: emp.position,
           department: emp.department,
-          baseSalary: payrollRecord
-            ? Number(payrollRecord.base_salary)
-            : Number(emp.base_salary),
-          dailyRate: payrollRecord
-            ? Number(payrollRecord.daily_rate)
-            : Number(emp.daily_rate || 0),
-          dailyRateWithIncentive: payrollRecord
-            ? Number(payrollRecord.daily_rate_with_incentive)
-            : Number(emp.daily_rate_with_incentive || 0),
-          monthlyIncentives: payrollRecord
-            ? Number(payrollRecord.monthly_incentives)
-            : Number(emp.monthly_incentives || 0),
-          bonus: payrollRecord ? Number(payrollRecord.bonus || 0) : 0,
-          overtimeAmount: payrollRecord
-            ? Number(payrollRecord.overtime_amount || 0)
-            : 0,
-          purchases: payrollRecord ? Number(payrollRecord.purchases || 0) : 0,
-          advances: payrollRecord ? Number(payrollRecord.advances || 0) : 0,
-          absenceDays: payrollRecord
-            ? Number(payrollRecord.absence_days || 0)
-            : 0,
-          absenceDeductions: payrollRecord
-            ? Number(payrollRecord.absence_deductions || 0)
-            : 0,
-          penaltyDays: payrollRecord
-            ? Number(payrollRecord.penalty_days || 0)
-            : 0,
-          penalties: payrollRecord ? Number(payrollRecord.penalties || 0) : 0,
-          netSalary: payrollRecord
-            ? Number(payrollRecord.net_salary)
-            : Number(emp.base_salary),
-          totalSalaryWithIncentive: payrollRecord
-            ? Number(payrollRecord.total_salary_with_incentive)
-            : Number(emp.base_salary) + Number(emp.monthly_incentives || 0),
-        };
-      });
+          baseSalary: Number(emp.base_salary),
+          dailyRate: Number(emp.daily_rate || 0),
+          dailyRateWithIncentive: Number(emp.daily_rate_with_incentive || 0),
+          monthlyIncentives: Number(emp.monthly_incentives || 0),
+          bonus: 0,
+          overtimeAmount: 0,
+          purchases: 0,
+          advances: 0,
+          absenceDays: 0,
+          absenceDeductions: 0,
+          penaltyDays: 0,
+          penalties: 0,
+          netSalary: Number(emp.base_salary),
+          totalSalaryWithIncentive:
+            Number(emp.base_salary) + Number(emp.monthly_incentives || 0),
+        }));
 
-      setEmployees(employeeData);
+      // Combine both arrays
+      setEmployees([...employeesWithPayroll, ...employeesWithoutPayroll]);
     }
   }, [supabaseEmployees, supabasePayroll, selectedMonth, selectedYear]);
 
@@ -304,9 +329,9 @@ const MonthlySalaryReport = () => {
     const printWindow = window.open("", "_blank");
     if (!printWindow) return;
 
-    // Generate HTML for all employees (not just filtered ones)
+    // Generate HTML for filtered employees only
     const generateEmployeeRows = () => {
-      return employees
+      return filteredEmployees
         .map((employee) => {
           const totalDeductions =
             employee.purchases +
@@ -336,16 +361,16 @@ const MonthlySalaryReport = () => {
         .join("");
     };
 
-    // Calculate totals for all employees
-    const allEmployeesTotalNetSalary = employees.reduce(
+    // Calculate totals for filtered employees
+    const allEmployeesTotalNetSalary = filteredEmployees.reduce(
       (sum, employee) => sum + employee.netSalary,
       0,
     );
-    const allEmployeesTotalBaseSalary = employees.reduce(
+    const allEmployeesTotalBaseSalary = filteredEmployees.reduce(
       (sum, employee) => sum + employee.baseSalary,
       0,
     );
-    const allEmployeesTotalIncentives = employees.reduce(
+    const allEmployeesTotalIncentives = filteredEmployees.reduce(
       (sum, employee) => sum + employee.monthlyIncentives,
       0,
     );
@@ -371,9 +396,15 @@ const MonthlySalaryReport = () => {
           th { background-color: #f0f0f0; font-weight: bold; }
           .text-right { text-align: right; }
           tfoot tr { font-weight: bold; background-color: #f9f9f9; }
+          .company-header { display: flex; justify-content: space-between; margin-bottom: 10px; }
+          .company-name { font-weight: bold; font-size: 16px; }
         </style>
       </head>
       <body>
+        <div class="company-header">
+          <div class="company-name">شركة الموارد البشرية</div>
+          <div>HR Company</div>
+        </div>
         <div class="report-header">
           <h1>${t.title}</h1>
           <h2>${months.find((m) => m.value === selectedMonth)?.labelAr || selectedMonth} / ${selectedYear}</h2>
@@ -404,7 +435,7 @@ const MonthlySalaryReport = () => {
           <tfoot>
             <tr>
               <td colspan="3" style="border: 1px solid #ddd; padding: 6px; text-align: ${isRTL ? "right" : "left"};">
-                ${t.totalEmployees}: ${employees.length}
+                ${t.totalEmployees}: ${filteredEmployees.length}
               </td>
               <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${allEmployeesTotalBaseSalary}</td>
               <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${allEmployeesTotalIncentives}</td>
@@ -447,7 +478,7 @@ const MonthlySalaryReport = () => {
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center no-print">
         <h2 className="text-2xl font-semibold">{t.title}</h2>
         <div className="flex gap-2 mt-4 md:mt-0">
           <PrintButton onClick={handlePrint} label={t.print} landscape />
@@ -458,7 +489,7 @@ const MonthlySalaryReport = () => {
         </div>
       </div>
 
-      <Card className="bg-card">
+      <Card className="bg-card no-print">
         <CardContent className="pt-6">
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4 mb-6">
             <div className="space-y-2">
@@ -477,32 +508,42 @@ const MonthlySalaryReport = () => {
 
             <div className="space-y-2">
               <Label htmlFor="month">{t.month}</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <Select
+                value={selectedMonth || "01"}
+                onValueChange={setSelectedMonth}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {months.map((month) => (
-                    <SelectItem key={month.value} value={month.value}>
-                      {isRTL ? month.labelAr : month.labelEn}
-                    </SelectItem>
-                  ))}
+                  {months.map((month) =>
+                    month.value ? (
+                      <SelectItem key={month.value} value={month.value}>
+                        {isRTL ? month.labelAr : month.labelEn}
+                      </SelectItem>
+                    ) : null,
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="year">{t.year}</Label>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <Select
+                value={selectedYear || "2024"}
+                onValueChange={setSelectedYear}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {years.map((year) => (
-                    <SelectItem key={year} value={year}>
-                      {year}
-                    </SelectItem>
-                  ))}
+                  {years.map((year) =>
+                    year ? (
+                      <SelectItem key={year} value={year}>
+                        {year}
+                      </SelectItem>
+                    ) : null,
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -510,7 +551,7 @@ const MonthlySalaryReport = () => {
             <div className="space-y-2">
               <Label htmlFor="department">{t.department}</Label>
               <Select
-                value={selectedDepartment}
+                value={selectedDepartment || "all"}
                 onValueChange={setSelectedDepartment}
               >
                 <SelectTrigger>
@@ -519,10 +560,10 @@ const MonthlySalaryReport = () => {
                 <SelectContent>
                   <SelectItem value="all">{t.allDepartments}</SelectItem>
                   {departments
-                    .filter((dept) => dept !== "all")
+                    .filter((dept) => dept !== "all" && dept)
                     .map((dept) => (
-                      <SelectItem key={dept} value={dept}>
-                        {dept}
+                      <SelectItem key={dept} value={dept || "unknown"}>
+                        {dept || "Unknown"}
                       </SelectItem>
                     ))}
                 </SelectContent>

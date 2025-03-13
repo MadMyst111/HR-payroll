@@ -9,7 +9,7 @@ interface PrintButtonProps {
   landscape?: boolean;
 }
 
-const PrintButton = ({
+export const PrintButton = ({
   onClick,
   label = "Print",
   className = "",
@@ -23,6 +23,19 @@ const PrintButton = ({
         @page {
           size: ${landscape ? "landscape" : "portrait"};
           margin: 1cm;
+        }
+        body * {
+          visibility: hidden;
+        }
+        .print-section, .print-section * {
+          visibility: visible;
+        }
+        .print-section {
+          position: absolute;
+          left: 0;
+          top: 0;
+          width: 100%;
+          padding: 20px;
         }
       }
     `;
@@ -50,5 +63,3 @@ const PrintButton = ({
     </Button>
   );
 };
-
-export { PrintButton };

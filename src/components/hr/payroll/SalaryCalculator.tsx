@@ -327,7 +327,18 @@ const SalaryCalculator = ({
 
   const handleSave = () => {
     if (calculationData) {
-      onSave(calculationData);
+      // Calculate all values before saving to ensure everything is up to date
+      calculateSalary();
+      // Use setTimeout to ensure the state is updated before saving
+      setTimeout(() => {
+        onSave(calculationData);
+        toast({
+          title: isRTL
+            ? "تم حفظ بيانات الراتب بنجاح"
+            : "Salary data saved successfully",
+          duration: 3000,
+        });
+      }, 100);
     }
   };
 

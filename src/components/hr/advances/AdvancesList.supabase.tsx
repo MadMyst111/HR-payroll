@@ -113,6 +113,9 @@ const AdvancesList = ({
 
   // Convert Supabase advances to AdvanceData
   useEffect(() => {
+    console.log("Supabase advances data:", supabaseAdvances);
+    console.log("Supabase employees data:", supabaseEmployees);
+
     if (supabaseAdvances && supabaseAdvances.length > 0) {
       const formattedAdvances = supabaseAdvances.map((adv) => {
         // Find employee name
@@ -120,11 +123,19 @@ const AdvancesList = ({
           (emp) => emp.id === adv.employee_id,
         );
 
-        return {
+        // Ensure amount is a valid number
+        const amount =
+          typeof adv.amount === "number"
+            ? adv.amount
+            : typeof adv.amount === "string"
+              ? parseFloat(adv.amount)
+              : 0;
+
+        const formattedAdvance = {
           id: adv.id,
           employeeId: adv.employee_id || "",
           employeeName: employee?.name || "Unknown Employee",
-          amount: Number(adv.amount),
+          amount: amount,
           requestDate: adv.request_date,
           expectedPaymentDate: adv.expected_payment_date,
           status: adv.status as "pending" | "approved" | "rejected" | "paid",
@@ -132,12 +143,17 @@ const AdvancesList = ({
           paymentDate: adv.payment_date || undefined,
           notes: adv.notes || undefined,
         };
+
+        console.log(
+          `Formatted advance for ${formattedAdvance.employeeName}:`,
+          formattedAdvance,
+        );
+        return formattedAdvance;
       });
-      // Only update state if there are actual changes to prevent unnecessary re-renders
-      // and to avoid overwriting local state changes like deletions
-      if (JSON.stringify(formattedAdvances) !== JSON.stringify(advances)) {
-        setAdvances(formattedAdvances);
-      }
+
+      console.log("All formatted advances:", formattedAdvances);
+      // Always update the advances state to ensure we have the latest data
+      setAdvances(formattedAdvances);
     } else if (!advancesLoading && supabaseAdvances?.length === 0) {
       // If no advances in database and employees exist, add default ones
       if (supabaseEmployees && supabaseEmployees.length > 0) {
@@ -301,11 +317,16 @@ const AdvancesList = ({
 
   const handleSaveAdvance = async (advanceData: AdvanceData) => {
     try {
+      console.log(`Saving advance data:`, advanceData);
+
+      // Ensure amount is a valid number
+      const amount = Number(advanceData.amount) || 0;
+
       if (currentAdvance) {
         // Edit existing advance
         await updateRow(advanceData.id, {
           employee_id: advanceData.employeeId,
-          amount: advanceData.amount,
+          amount: amount,
           request_date: advanceData.requestDate,
           expected_payment_date: advanceData.expectedPaymentDate,
           status: advanceData.status,
@@ -314,25 +335,40 @@ const AdvancesList = ({
           notes: advanceData.notes,
         });
 
-        // No need to manually update local state as the realtime subscription will handle it
+        // Manually update local state to ensure immediate UI update
+        setAdvances((prevAdvances) =>
+          prevAdvances.map((adv) =>
+            adv.id === advanceData.id ? { ...advanceData, amount } : adv,
+          ),
+        );
+
         toast({
           title: t.advanceUpdated,
           duration: 3000,
         });
       } else {
         // Add new advance
-        await insertRow({
+        const result = await insertRow({
           employee_id: advanceData.employeeId,
-          amount: advanceData.amount,
+          amount: amount,
           request_date: advanceData.requestDate,
           expected_payment_date: advanceData.expectedPaymentDate,
-          status: advanceData.status,
-          approved_by: advanceData.approvedBy,
-          payment_date: advanceData.paymentDate,
-          notes: advanceData.notes,
+          status: advanceData.status || "pending",
+          approved_by: advanceData.approvedBy || null,
+          payment_date: advanceData.paymentDate || null,
+          notes: advanceData.notes || null,
         });
 
-        // No need to manually update local state as the realtime subscription will handle it
+        // Manually add to local state to ensure immediate UI update
+        if (result) {
+          const newAdvance = {
+            ...advanceData,
+            id: result.id,
+            amount: amount,
+          };
+          setAdvances((prevAdvances) => [...prevAdvances, newAdvance]);
+        }
+
         toast({
           title: t.advanceAdded,
           duration: 3000,
@@ -353,16 +389,35 @@ const AdvancesList = ({
 
   const handleDeductFromSalary = async (advance: AdvanceData) => {
     try {
+      console.log(`Deducting advance from salary:`, advance);
+
       // Update the advance status to paid
       await updateRow(advance.id, {
         status: "paid",
         payment_date: new Date().toISOString().split("T")[0],
       });
 
-      // No need to manually update local state as the realtime subscription will handle it
+      // Manually update local state to ensure immediate UI update
+      setAdvances((prevAdvances) =>
+        prevAdvances.map((adv) =>
+          adv.id === advance.id
+            ? {
+                ...adv,
+                status: "paid",
+                paymentDate: new Date().toISOString().split("T")[0],
+              }
+            : adv,
+        ),
+      );
 
       // Update the employee's advances amount in payroll record
-      onUpdateEmployeeAdvances(advance.employeeId, advance.amount);
+      // Pass the advance amount to the parent component for processing
+      const advanceAmount = Number(advance.amount) || 0;
+      console.log(`Passing advance amount to parent:`, {
+        employeeId: advance.employeeId,
+        amount: advanceAmount,
+      });
+      onUpdateEmployeeAdvances(advance.employeeId, advanceAmount);
 
       toast({
         title: t.advanceDeducted,
@@ -378,14 +433,21 @@ const AdvancesList = ({
     }
   };
 
-  const filteredAdvances = advances.filter(
-    (advance) =>
-      (advance.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
-        advance.employeeName
-          .toLowerCase()
-          .includes(searchTerm.toLowerCase())) &&
-      (selectedEmployee === "all" || advance.employeeId === selectedEmployee),
-  );
+  const filteredAdvances = advances.filter((advance) => {
+    const matchesSearch =
+      advance.id.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      advance.employeeName.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesEmployee =
+      selectedEmployee === "all" || advance.employeeId === selectedEmployee;
+    return matchesSearch && matchesEmployee;
+  });
+
+  console.log("Filtered advances:", {
+    total: advances.length,
+    filtered: filteredAdvances.length,
+    searchTerm,
+    selectedEmployee,
+  });
 
   // Get current and previous advances for each employee
   const employeeAdvancesData = React.useMemo(() => {
@@ -402,36 +464,79 @@ const AdvancesList = ({
       }
     > = {};
 
+    console.log("Calculating employee advances with:", {
+      employeesCount: localEmployees.length,
+      advancesCount: advances.length,
+      advancesData: advances,
+    });
+
     // Initialize with all employees
     localEmployees.forEach((emp) => {
       // Set max advance limit to 3 months of base salary
       const maxAdvanceLimit = emp.baseSalary * 3;
 
       // Calculate total advances (both approved and paid)
-      let totalTakenAdvances = emp.advances; // Previously deducted advances
+      let totalTakenAdvances = 0;
       let currentPendingAdvances = 0;
+      let previousAdvances = 0;
 
       // Count all advances for this employee
-      advances.forEach((advance) => {
-        if (advance.employeeId === emp.id) {
-          if (advance.status === "approved") {
-            currentPendingAdvances += advance.amount;
-            totalTakenAdvances += advance.amount;
-          }
+      const employeeAdvances = advances.filter(
+        (adv) => adv.employeeId === emp.id,
+      );
+      console.log(
+        `Found ${employeeAdvances.length} advances for ${emp.name}:`,
+        employeeAdvances,
+      );
+
+      employeeAdvances.forEach((advance) => {
+        console.log(`Processing advance for ${emp.name}:`, advance);
+        // Make sure we're working with numbers
+        const advanceAmount = Number(advance.amount) || 0;
+
+        if (advance.status === "approved") {
+          currentPendingAdvances += advanceAmount;
+          totalTakenAdvances += advanceAmount;
+          console.log(
+            `Added approved advance: ${advanceAmount}, current total: ${currentPendingAdvances}`,
+          );
+        } else if (advance.status === "paid") {
+          previousAdvances += advanceAmount;
+          totalTakenAdvances += advanceAmount;
+          console.log(
+            `Added paid advance: ${advanceAmount}, previous total: ${previousAdvances}`,
+          );
+        } else if (advance.status === "pending") {
+          // Include pending advances in the current advances total
+          currentPendingAdvances += advanceAmount;
+          totalTakenAdvances += advanceAmount;
+          console.log(
+            `Added pending advance: ${advanceAmount}, current total: ${currentPendingAdvances}`,
+          );
+        } else {
+          console.log(`Unhandled advance status: ${advance.status}`);
         }
       });
 
+      console.log(`Final calculated advances for ${emp.name}:`, {
+        currentPendingAdvances,
+        previousAdvances,
+        totalTakenAdvances,
+      });
+
+      // Add to the data object
       data[emp.id] = {
         employeeId: emp.id,
         employeeName: emp.name,
         currentAdvances: currentPendingAdvances,
-        previousAdvances: emp.advances,
+        previousAdvances: previousAdvances,
         totalAdvances: totalTakenAdvances,
-        remainingAdvances: totalTakenAdvances, // This is the total of advances taken
+        remainingAdvances: totalTakenAdvances,
         maxAdvanceLimit: maxAdvanceLimit,
       };
     });
 
+    console.log("Final employee advances data:", data);
     return Object.values(data);
   }, [advances, localEmployees]);
 

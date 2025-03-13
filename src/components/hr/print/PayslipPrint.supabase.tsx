@@ -51,6 +51,7 @@ interface PayslipData {
 interface PayslipPrintProps {
   onPrint?: () => void;
   onDownload?: () => void;
+  selectedPayrollId?: string | null;
 }
 
 const months = [
@@ -77,6 +78,7 @@ const PayslipPrint = ({
   onDownload = () => {
     console.log("Download payslip");
   },
+  selectedPayrollId = null,
 }: PayslipPrintProps) => {
   const { isRTL } = useLanguage();
   const { toast } = useToast();
@@ -92,7 +94,14 @@ const PayslipPrint = ({
     data: supabasePayroll,
     loading: payrollLoading,
     error: payrollError,
-  } = useSupabaseData("payroll");
+  } = useSupabaseData(
+    "payroll",
+    selectedPayrollId
+      ? {
+          filter: [{ column: "id", value: selectedPayrollId }],
+        }
+      : undefined,
+  );
 
   const [selectedEmployeeId, setSelectedEmployeeId] = useState<string>("");
   const [selectedMonth, setSelectedMonth] = useState<string>(
@@ -103,16 +112,36 @@ const PayslipPrint = ({
   );
   const [payslip, setPayslip] = useState<PayslipData | null>(null);
 
-  // Set initial employee when data loads
+  // Set initial employee when data loads or when selectedPayrollId changes
   useEffect(() => {
-    if (
+    if (selectedPayrollId && supabasePayroll && supabasePayroll.length > 0) {
+      // If we have a selected payroll ID, use the employee from that payroll record
+      const payrollRecord = supabasePayroll[0];
+      if (payrollRecord.employee_id) {
+        setSelectedEmployeeId(payrollRecord.employee_id);
+
+        // Also set the month and year from the payroll record
+        if (payrollRecord.month) {
+          setSelectedMonth(payrollRecord.month.toString().padStart(2, "0"));
+        }
+        if (payrollRecord.year) {
+          setSelectedYear(payrollRecord.year.toString());
+        }
+      }
+    } else if (
       supabaseEmployees &&
       supabaseEmployees.length > 0 &&
       !selectedEmployeeId
     ) {
+      // Otherwise use the first employee
       setSelectedEmployeeId(supabaseEmployees[0].id);
     }
-  }, [supabaseEmployees, selectedEmployeeId]);
+  }, [
+    supabaseEmployees,
+    selectedEmployeeId,
+    selectedPayrollId,
+    supabasePayroll,
+  ]);
 
   // Generate payslip from employee and payroll data
   useEffect(() => {
@@ -326,7 +355,7 @@ const PayslipPrint = ({
 
   return (
     <div className="space-y-6">
-      <div className="flex flex-col md:flex-row justify-between items-start md:items-center">
+      <div className="flex flex-col md:flex-row justify-between items-start md:items-center no-print">
         <h2 className="text-2xl font-semibold">{t.title}</h2>
         <div className="flex gap-2 mt-4 md:mt-0">
           <PrintButton onClick={onPrint} label={t.print} />
@@ -337,7 +366,7 @@ const PayslipPrint = ({
         </div>
       </div>
 
-      <Card className="bg-card">
+      <Card className="bg-card no-print">
         <CardHeader>
           <CardTitle>{t.selectPeriod}</CardTitle>
         </CardHeader>
@@ -346,50 +375,62 @@ const PayslipPrint = ({
             <div className="space-y-2">
               <Label htmlFor="employee">{t.selectEmployee}</Label>
               <Select
-                value={selectedEmployeeId}
+                value={selectedEmployeeId || "default"}
                 onValueChange={setSelectedEmployeeId}
               >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {supabaseEmployees?.map((employee) => (
-                    <SelectItem key={employee.id} value={employee.id}>
-                      {employee.name}
-                    </SelectItem>
-                  ))}
+                  {supabaseEmployees?.map((employee) =>
+                    employee.id ? (
+                      <SelectItem key={employee.id} value={employee.id}>
+                        {employee.name || "Employee"}
+                      </SelectItem>
+                    ) : null,
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="month">{t.month}</Label>
-              <Select value={selectedMonth} onValueChange={setSelectedMonth}>
+              <Select
+                value={selectedMonth || "01"}
+                onValueChange={setSelectedMonth}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {months.map((month) => (
-                    <SelectItem key={month.value} value={month.value}>
-                      {isRTL ? month.labelAr : month.labelEn}
-                    </SelectItem>
-                  ))}
+                  {months.map((month) =>
+                    month.value ? (
+                      <SelectItem key={month.value} value={month.value}>
+                        {isRTL ? month.labelAr : month.labelEn}
+                      </SelectItem>
+                    ) : null,
+                  )}
                 </SelectContent>
               </Select>
             </div>
 
             <div className="space-y-2">
               <Label htmlFor="year">{t.year}</Label>
-              <Select value={selectedYear} onValueChange={setSelectedYear}>
+              <Select
+                value={selectedYear || "2024"}
+                onValueChange={setSelectedYear}
+              >
                 <SelectTrigger>
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
-                  {years.map((year) => (
-                    <SelectItem key={year} value={year}>
-                      {year}
-                    </SelectItem>
-                  ))}
+                  {years.map((year) =>
+                    year ? (
+                      <SelectItem key={year} value={year}>
+                        {year}
+                      </SelectItem>
+                    ) : null,
+                  )}
                 </SelectContent>
               </Select>
             </div>
@@ -402,145 +443,149 @@ const PayslipPrint = ({
       </Card>
 
       {payslip && (
-        <Card className="bg-card print-content">
-          <CardHeader className="border-b">
-            <div className="flex justify-between items-center">
-              <div>
-                <CardTitle className="text-2xl">{t.title}</CardTitle>
-                <p className="text-muted-foreground">
-                  {months.find((m) => m.value === payslip.month)?.labelAr ||
-                    payslip.month}{" "}
-                  / {payslip.year}
-                </p>
-              </div>
-              <div className="text-right">
-                <h3 className="font-semibold">شركة الموارد البشرية</h3>
-                <p className="text-muted-foreground">HR Company</p>
-              </div>
-            </div>
-          </CardHeader>
-
-          <CardContent className="pt-6">
-            <div className="space-y-6">
-              <div className="bg-muted/20 p-4 rounded-lg">
-                <h3 className="font-semibold mb-2">{t.employeeInfo}</h3>
-                <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      {t.employeeId}
-                    </p>
-                    <p className="font-medium">
-                      {payslip.employeeId.substring(0, 8)}
-                    </p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      {t.employeeName}
-                    </p>
-                    <p className="font-medium">{payslip.employeeName}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      {t.position}
-                    </p>
-                    <p className="font-medium">{payslip.position}</p>
-                  </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      {t.department}
-                    </p>
-                    <p className="font-medium">{payslip.department}</p>
-                  </div>
+        <div className="print-section">
+          <Card className="bg-card payslip-card">
+            <CardHeader className="border-b payslip-header">
+              <div className="flex justify-between items-center">
+                <div>
+                  <CardTitle className="text-2xl">{t.title}</CardTitle>
+                  <p className="text-muted-foreground">
+                    {months.find((m) => m.value === payslip.month)?.labelAr ||
+                      payslip.month}{" "}
+                    / {payslip.year}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <h3 className="font-semibold">شركة الموارد البشرية</h3>
+                  <p className="text-muted-foreground">HR Company</p>
                 </div>
               </div>
+            </CardHeader>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-green-600 dark:text-green-400">
-                    {t.earnings}
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>{t.baseSalary}</span>
-                      <span>{payslip.baseSalary} ج.م</span>
+            <CardContent className="pt-6 payslip-content">
+              <div className="space-y-6">
+                <div className="bg-muted/20 p-4 rounded-lg">
+                  <h3 className="font-semibold mb-2">{t.employeeInfo}</h3>
+                  <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {t.employeeId}
+                      </p>
+                      <p className="font-medium">
+                        {payslip.employeeId.substring(0, 8)}
+                      </p>
                     </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span>{t.monthlyIncentives}</span>
-                      <span>{payslip.monthlyIncentives} ج.م</span>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {t.employeeName}
+                      </p>
+                      <p className="font-medium">{payslip.employeeName}</p>
                     </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span>{t.bonus}</span>
-                      <span>{payslip.bonus} ج.م</span>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {t.position}
+                      </p>
+                      <p className="font-medium">{payslip.position}</p>
                     </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span>{t.overtimeAmount}</span>
-                      <span>{payslip.overtimeAmount} ج.م</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-semibold">
-                      <span>{t.totalEarnings}</span>
-                      <span>{calculateTotalEarnings()} ج.م</span>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {t.department}
+                      </p>
+                      <p className="font-medium">{payslip.department}</p>
                     </div>
                   </div>
                 </div>
 
-                <div className="space-y-4">
-                  <h3 className="font-semibold text-red-600 dark:text-red-400">
-                    {t.deductions}
-                  </h3>
-                  <div className="space-y-2">
-                    <div className="flex justify-between">
-                      <span>{t.purchases}</span>
-                      <span>{payslip.deductions.purchases} ج.م</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span>{t.advances}</span>
-                      <span>{payslip.deductions.advances} ج.م</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span>{t.absenceDeductions}</span>
-                      <span>{payslip.deductions.absenceDeductions} ج.م</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between">
-                      <span>{t.penalties}</span>
-                      <span>{payslip.deductions.penalties} ج.م</span>
-                    </div>
-                    <Separator />
-                    <div className="flex justify-between font-semibold">
-                      <span>{t.totalDeductions}</span>
-                      <span>{calculateTotalDeductions()} ج.م</span>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-green-600 dark:text-green-400">
+                      {t.earnings}
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{t.baseSalary}</span>
+                        <span>{payslip.baseSalary} ج.م</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span>{t.monthlyIncentives}</span>
+                        <span>{payslip.monthlyIncentives} ج.م</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span>{t.bonus}</span>
+                        <span>{payslip.bonus} ج.م</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span>{t.overtimeAmount}</span>
+                        <span>{payslip.overtimeAmount} ج.م</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between font-semibold">
+                        <span>{t.totalEarnings}</span>
+                        <span>{calculateTotalEarnings()} ج.م</span>
+                      </div>
                     </div>
                   </div>
-                </div>
-              </div>
 
-              <div className="bg-primary/10 p-4 rounded-lg mt-6">
-                <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                  <div>
-                    <p className="text-sm text-muted-foreground">{t.netPay}</p>
-                    <p className="text-2xl font-bold">
-                      {payslip.netSalary} ج.م
-                    </p>
+                  <div className="space-y-4">
+                    <h3 className="font-semibold text-red-600 dark:text-red-400">
+                      {t.deductions}
+                    </h3>
+                    <div className="space-y-2">
+                      <div className="flex justify-between">
+                        <span>{t.purchases}</span>
+                        <span>{payslip.deductions.purchases} ج.م</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span>{t.advances}</span>
+                        <span>{payslip.deductions.advances} ج.م</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span>{t.absenceDeductions}</span>
+                        <span>{payslip.deductions.absenceDeductions} ج.م</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span>{t.penalties}</span>
+                        <span>{payslip.deductions.penalties} ج.م</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between font-semibold">
+                        <span>{t.totalDeductions}</span>
+                        <span>{calculateTotalDeductions()} ج.م</span>
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <p className="text-sm text-muted-foreground">
-                      {t.totalSalaryWithIncentive}
-                    </p>
-                    <p className="text-2xl font-bold">
-                      {payslip.totalSalaryWithIncentive} ج.م
-                    </p>
+                </div>
+
+                <div className="bg-primary/10 p-4 rounded-lg mt-6">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {t.netPay}
+                      </p>
+                      <p className="text-2xl font-bold">
+                        {payslip.netSalary} ج.م
+                      </p>
+                    </div>
+                    <div>
+                      <p className="text-sm text-muted-foreground">
+                        {t.totalSalaryWithIncentive}
+                      </p>
+                      <p className="text-2xl font-bold">
+                        {payslip.totalSalaryWithIncentive} ج.م
+                      </p>
+                    </div>
                   </div>
                 </div>
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </div>
       )}
     </div>
   );

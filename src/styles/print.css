@@ -22,6 +22,11 @@
     color: black;
   }
 
+  /* Hide UI elements */
+  .no-print {
+    display: none !important;
+  }
+
   /* Avoid page breaks inside elements */
   .card-content,
   tr,
@@ -63,16 +68,24 @@
     margin: 1cm;
   }
 
-  /* Hide UI elements */
-  button,
-  .no-print {
-    display: none !important;
-  }
-
   /* Remove shadows and borders */
   .card {
     box-shadow: none !important;
     border: 1px solid #ddd !important;
+  }
+
+  /* Payslip specific styles */
+  .payslip-card {
+    max-width: 100%;
+    margin: 0;
+  }
+
+  .payslip-header {
+    border-bottom: 2px solid #000;
+  }
+
+  .payslip-content {
+    font-size: 12pt;
   }
 }
 

@@ -7,14 +7,19 @@ import { useLanguage } from "@/contexts/LanguageContext";
 import { EmployeeFormData } from "@/components/hr/employees/AddEmployeeForm";
 import { AdvanceData } from "@/components/hr/advances/AddAdvanceForm";
 import { useSupabaseData } from "@/hooks/useSupabaseData";
+import { supabase } from "@/lib/supabase";
+import { useToast } from "@/components/ui/use-toast";
 
 const PayrollPage = () => {
   const { isRTL } = useLanguage();
+  const { toast } = useToast();
   const [activeTab, setActiveTab] = useState("payroll-list");
 
   // Fetch data from Supabase
   const { data: supabaseEmployees } = useSupabaseData("employees");
   const { data: supabaseAdvances } = useSupabaseData("advances");
+  const { insertRow: insertPayroll, updateRow: updatePayroll } =
+    useSupabaseData("payroll");
 
   // Convert Supabase data to component format
   const employees: EmployeeFormData[] =
@@ -75,11 +80,15 @@ const PayrollPage = () => {
 
   const t = isRTL ? labels.ar : labels.en;
 
+  // Get the updateRow function from the employees table hook
+  const { updateRow: updateEmployee } = useSupabaseData("employees");
+
   const handleSaveEmployee = async (updatedEmployee: EmployeeFormData) => {
     try {
+      console.log("Saving employee data:", updatedEmployee);
+
       // Update employee in Supabase
-      const { updateRow } = useSupabaseData("employees");
-      await updateRow(updatedEmployee.id, {
+      const result = await updateEmployee(updatedEmployee.id, {
         name: updatedEmployee.name,
         position: updatedEmployee.position,
         department: updatedEmployee.department,
@@ -90,8 +99,79 @@ const PayrollPage = () => {
         daily_rate_with_incentive: updatedEmployee.dailyRateWithIncentive,
         overtime_rate: updatedEmployee.overtimeRate,
       });
+
+      console.log("Employee update result:", result);
+
+      const currentDate = new Date();
+      const currentMonth = currentDate.getMonth() + 1;
+      const currentYear = currentDate.getFullYear();
+
+      // Create payroll data from the updated employee
+      const payrollData = {
+        employee_id: updatedEmployee.id,
+        month: currentMonth,
+        year: currentYear,
+        base_salary: updatedEmployee.baseSalary,
+        monthly_incentives: updatedEmployee.monthlyIncentives,
+        bonus: updatedEmployee.bonus,
+        overtime_hours: updatedEmployee.overtimeHours,
+        overtime_amount: updatedEmployee.overtimeAmount,
+        purchases: updatedEmployee.purchases,
+        advances: updatedEmployee.advances,
+        absence_days: updatedEmployee.absenceDays,
+        absence_deductions: updatedEmployee.absenceDeductions,
+        penalty_days: updatedEmployee.penaltyDays,
+        penalties: updatedEmployee.penalties,
+        net_salary: updatedEmployee.netSalary,
+        total_salary_with_incentive: updatedEmployee.totalSalaryWithIncentive,
+        status: "active",
+      };
+
+      try {
+        // First check if a payroll record exists for this employee in the current month/year
+        const { data: existingPayroll } = await supabase
+          .from("payroll")
+          .select("id")
+          .eq("employee_id", updatedEmployee.id)
+          .eq("month", currentMonth)
+          .eq("year", currentYear)
+          .single();
+
+        if (existingPayroll) {
+          // Update existing record
+          await updatePayroll(existingPayroll.id, payrollData);
+          console.log("Updated existing payroll record");
+        } else {
+          // Insert new record
+          await insertPayroll(payrollData);
+          console.log("Created new payroll record");
+        }
+
+        toast({
+          title: isRTL
+            ? "تم حفظ بيانات الراتب بنجاح"
+            : "Salary data saved successfully",
+          duration: 3000,
+        });
+      } catch (error) {
+        console.error("Error managing payroll record:", error);
+        toast({
+          title: isRTL
+            ? "حدث خطأ أثناء حفظ بيانات الراتب"
+            : "Error saving payroll data",
+          variant: "destructive",
+          duration: 3000,
+        });
+      }
     } catch (error) {
       console.error("Error updating employee:", error);
+      toast({
+        title: isRTL
+          ? "حدث خطأ أثناء تحديث بيانات الموظف"
+          : "Error updating employee data",
+        variant: "destructive",
+        duration: 3000,
+      });
     }
   };
 
@@ -112,9 +192,23 @@ const PayrollPage = () => {
         {activeTab === "payroll-list" && (
           <div className="mt-6">
             <PayrollList
-              onViewDetails={(id) => console.log("View details", id)}
-              onPrint={(id) => console.log("Print", id)}
-              onDownload={(id) => console.log("Download", id)}
+              onViewDetails={(id) => {
+                // Navigate to print page with the selected payroll ID
+                window.open(`/print?id=${id}`, "_blank");
+              }}
+              onPrint={(id) => {
+                window.open(`/print?id=${id}&print=true`, "_blank");
+              }}
+              onDownload={(id) => {
+                // Create a PDF download or export data
+                toast({
+                  title: isRTL
+                    ? "جاري تحميل كشف الراتب..."
+                    : "Downloading payslip...",
+                  duration: 3000,
+                });
+                window.open(`/print?id=${id}&download=true`, "_blank");
+              }}
             />
           </div>
         )}
