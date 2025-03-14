@@ -414,8 +414,15 @@ const AdvancesTracker = ({ employeeId }: AdvancesTrackerProps) => {
                     <div className="text-sm text-muted-foreground">
                       {t.newAdvances}
                     </div>
-                    <div className="text-xl font-bold mt-1">
-                      {summary.newAdvances.toFixed(2)} ج.م
+                    <div
+                      className="text-xl font-bold mt-1"
+                      dir={isRTL ? "rtl" : "ltr"}
+                    >
+                      {isRTL ? (
+                        <>{summary.newAdvances.toFixed(2)} ج.م</>
+                      ) : (
+                        <>{summary.newAdvances.toFixed(2)} ج.م</>
+                      )}
                     </div>
                   </div>
 
@@ -423,8 +430,15 @@ const AdvancesTracker = ({ employeeId }: AdvancesTrackerProps) => {
                     <div className="text-sm text-muted-foreground">
                       {t.previousAdvances}
                     </div>
-                    <div className="text-xl font-bold mt-1">
-                      {summary.previousAdvances.toFixed(2)} ج.م
+                    <div
+                      className="text-xl font-bold mt-1"
+                      dir={isRTL ? "rtl" : "ltr"}
+                    >
+                      {isRTL ? (
+                        <>{summary.previousAdvances.toFixed(2)} ج.م</>
+                      ) : (
+                        <>{summary.previousAdvances.toFixed(2)} ج.م</>
+                      )}
                     </div>
                   </div>
 
@@ -432,8 +446,15 @@ const AdvancesTracker = ({ employeeId }: AdvancesTrackerProps) => {
                     <div className="text-sm text-muted-foreground">
                       {t.currentAdvances}
                     </div>
-                    <div className="text-xl font-bold mt-1">
-                      {summary.currentAdvances.toFixed(2)} ج.م
+                    <div
+                      className="text-xl font-bold mt-1"
+                      dir={isRTL ? "rtl" : "ltr"}
+                    >
+                      {isRTL ? (
+                        <>{summary.currentAdvances.toFixed(2)} ج.م</>
+                      ) : (
+                        <>{summary.currentAdvances.toFixed(2)} ج.م</>
+                      )}
                     </div>
                   </div>
 
@@ -441,8 +462,15 @@ const AdvancesTracker = ({ employeeId }: AdvancesTrackerProps) => {
                     <div className="text-sm text-muted-foreground">
                       {t.deductedAdvances}
                     </div>
-                    <div className="text-xl font-bold mt-1">
-                      {summary.deductedAdvances.toFixed(2)} ج.م
+                    <div
+                      className="text-xl font-bold mt-1"
+                      dir={isRTL ? "rtl" : "ltr"}
+                    >
+                      {isRTL ? (
+                        <>{summary.deductedAdvances.toFixed(2)} ج.م</>
+                      ) : (
+                        <>{summary.deductedAdvances.toFixed(2)} ج.م</>
+                      )}
                     </div>
                   </div>
 
@@ -450,8 +478,15 @@ const AdvancesTracker = ({ employeeId }: AdvancesTrackerProps) => {
                     <div className="text-sm text-muted-foreground">
                       {t.remainingAdvances}
                     </div>
-                    <div className="text-xl font-bold mt-1">
-                      {summary.remainingAdvances.toFixed(2)} ج.م
+                    <div
+                      className="text-xl font-bold mt-1"
+                      dir={isRTL ? "rtl" : "ltr"}
+                    >
+                      {isRTL ? (
+                        <>{summary.remainingAdvances.toFixed(2)} ج.م</>
+                      ) : (
+                        <>{summary.remainingAdvances.toFixed(2)} ج.م</>
+                      )}
                     </div>
                   </div>
                 </div>

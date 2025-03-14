@@ -110,7 +110,7 @@ const HRSidebar = ({ activeItem = "/employees" }: HRSidebarProps) => {
                 <Link to={item.href} key={item.href}>
                   <Button
                     variant={item.href === activeItem ? "secondary" : "ghost"}
-                    className={`w-full justify-${isRTL ? "end" : "start"} gap-2 flex-row${isRTL ? "-reverse" : ""}`}
+                    className={`w-full ${isRTL ? "justify-end flex-row-reverse" : "justify-start flex-row"} gap-2`}
                   >
                     {item.icon}
                     {isRTL ? item.labelAr : item.labelEn}
@@ -130,7 +130,7 @@ const HRSidebar = ({ activeItem = "/employees" }: HRSidebarProps) => {
                 <Link to={item.href} key={item.href}>
                   <Button
                     variant={item.href === activeItem ? "secondary" : "ghost"}
-                    className={`w-full justify-${isRTL ? "end" : "start"} gap-2 flex-row${isRTL ? "-reverse" : ""}`}
+                    className={`w-full ${isRTL ? "justify-end flex-row-reverse" : "justify-start flex-row"} gap-2`}
                   >
                     {item.icon}
                     {isRTL ? item.labelAr : item.labelEn}
@@ -150,7 +150,7 @@ const HRSidebar = ({ activeItem = "/employees" }: HRSidebarProps) => {
                 <Link to={item.href} key={item.href}>
                   <Button
                     variant={item.href === activeItem ? "secondary" : "ghost"}
-                    className={`w-full justify-${isRTL ? "end" : "start"} gap-2 flex-row${isRTL ? "-reverse" : ""}`}
+                    className={`w-full ${isRTL ? "justify-end flex-row-reverse" : "justify-start flex-row"} gap-2`}
                   >
                     {item.icon}
                     {isRTL ? item.labelAr : item.labelEn}
@@ -170,7 +170,7 @@ const HRSidebar = ({ activeItem = "/employees" }: HRSidebarProps) => {
                 <Link to={item.href} key={item.href}>
                   <Button
                     variant={item.href === activeItem ? "secondary" : "ghost"}
-                    className={`w-full justify-${isRTL ? "end" : "start"} gap-2 flex-row${isRTL ? "-reverse" : ""}`}
+                    className={`w-full ${isRTL ? "justify-end flex-row-reverse" : "justify-start flex-row"} gap-2`}
                   >
                     {item.icon}
                     {isRTL ? item.labelAr : item.labelEn}
@@ -190,7 +190,7 @@ const HRSidebar = ({ activeItem = "/employees" }: HRSidebarProps) => {
                 <Link to={item.href} key={item.href}>
                   <Button
                     variant={item.href === activeItem ? "secondary" : "ghost"}
-                    className={`w-full justify-${isRTL ? "end" : "start"} gap-2 flex-row${isRTL ? "-reverse" : ""}`}
+                    className={`w-full ${isRTL ? "justify-end flex-row-reverse" : "justify-start flex-row"} gap-2`}
                   >
                     {item.icon}
                     {isRTL ? item.labelAr : item.labelEn}
@@ -210,7 +210,7 @@ const HRSidebar = ({ activeItem = "/employees" }: HRSidebarProps) => {
                 <Link to={item.href} key={item.href}>
                   <Button
                     variant={item.href === activeItem ? "secondary" : "ghost"}
-                    className={`w-full justify-${isRTL ? "end" : "start"} gap-2 flex-row${isRTL ? "-reverse" : ""}`}
+                    className={`w-full ${isRTL ? "justify-end flex-row-reverse" : "justify-start flex-row"} gap-2`}
                   >
                     {item.icon}
                     {isRTL ? item.labelAr : item.labelEn}
@@ -226,7 +226,7 @@ const HRSidebar = ({ activeItem = "/employees" }: HRSidebarProps) => {
         <Link to="/">
           <Button
             variant="ghost"
-            className={`w-full justify-${isRTL ? "end" : "start"} gap-2 mb-2 flex-row${isRTL ? "-reverse" : ""}`}
+            className={`w-full ${isRTL ? "justify-end flex-row-reverse" : "justify-start flex-row"} gap-2 mb-2`}
           >
             <Home size={20} />
             {isRTL ? "الصفحة الرئيسية" : "Home Page"}
@@ -234,7 +234,7 @@ const HRSidebar = ({ activeItem = "/employees" }: HRSidebarProps) => {
         </Link>
         <Button
           variant="ghost"
-          className={`w-full justify-${isRTL ? "end" : "start"} gap-2 mb-2 flex-row${isRTL ? "-reverse" : ""}`}
+          className={`w-full ${isRTL ? "justify-end flex-row-reverse" : "justify-start flex-row"} gap-2 mb-2`}
           onClick={toggleLanguage}
         >
           <Globe size={20} />

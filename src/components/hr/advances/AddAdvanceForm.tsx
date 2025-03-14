@@ -217,26 +217,40 @@ const AddAdvanceForm = ({
         <DialogHeader>
           <DialogTitle>{t.title}</DialogTitle>
         </DialogHeader>
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form
+          onSubmit={handleSubmit}
+          className="space-y-4"
+          dir={isRTL ? "rtl" : "ltr"}
+        >
           <div className="space-y-2">
-            <Label htmlFor="id">{t.advanceId}</Label>
+            <Label
+              htmlFor="id"
+              className={isRTL ? "text-right block w-full" : ""}
+            >
+              {t.advanceId}
+            </Label>
             <Input
               id="id"
               name="id"
               value={formData.id}
               onChange={handleChange}
               readOnly
-              className="bg-gray-100"
+              className={`bg-gray-100 ${isRTL ? "text-right" : ""}`}
             />
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="employeeId">{t.employee}</Label>
+            <Label
+              htmlFor="employeeId"
+              className={isRTL ? "text-right block w-full" : ""}
+            >
+              {t.employee}
+            </Label>
             <Select
               value={formData.employeeId}
               onValueChange={(value) => handleSelectChange("employeeId", value)}
             >
-              <SelectTrigger>
+              <SelectTrigger className={isRTL ? "text-right" : ""}>
                 <SelectValue placeholder={t.selectEmployee} />
               </SelectTrigger>
               <SelectContent>

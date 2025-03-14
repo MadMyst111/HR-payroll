@@ -21,7 +21,9 @@ const HRLayout = ({ children, activeNavItem }: HRLayoutProps) => {
       dir={isRTL ? "rtl" : "ltr"}
     >
       <HRTopNavigation />
-      <div className="flex h-[calc(100vh-64px)] mt-16">
+      <div
+        className={`flex ${isRTL ? "flex-row-reverse" : "flex-row"} h-[calc(100vh-64px)] mt-16`}
+      >
         <HRSidebar activeItem={activeNavItem} />
         <main className="flex-1 overflow-auto p-6">{children}</main>
       </div>

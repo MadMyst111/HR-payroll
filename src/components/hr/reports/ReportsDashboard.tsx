@@ -8,6 +8,7 @@ import MonthlySalaryReport from "./MonthlySalaryReport.supabase";
 import AttendanceReport from "./AttendanceReport";
 import LeaveReport from "./LeaveReport";
 import AdvancesReport from "./AdvancesReport";
+import AdvancesMonthlyReport from "./AdvancesMonthlyReport";
 
 const ReportsDashboard = () => {
   const { isRTL } = useLanguage();
@@ -24,6 +25,8 @@ const ReportsDashboard = () => {
       employeeAttendanceDesc: "تحليل حضور وغياب الموظفين",
       advancesReport: "تقرير السلف",
       advancesReportDesc: "تفاصيل السلف المصروفة والمستحقة",
+      advancesMonthlyReport: "تقرير السلف الشهري",
+      advancesMonthlyReportDesc: "تفاصيل السلف الجديدة والسابقة",
       leaveReport: "تقرير الإجازات",
       leaveReportDesc: "تحليل الإجازات المستخدمة والمتبقية",
       viewReport: "عرض التقرير",
@@ -38,6 +41,8 @@ const ReportsDashboard = () => {
       employeeAttendanceDesc: "Analyze employee attendance and absences",
       advancesReport: "Advances Report",
       advancesReportDesc: "Details of disbursed and due advances",
+      advancesMonthlyReport: "Monthly Advances Report",
+      advancesMonthlyReportDesc: "Details of new and previous advances",
       leaveReport: "Leave Report",
       leaveReportDesc: "Analysis of used and remaining leaves",
       viewReport: "View Report",
@@ -69,6 +74,13 @@ const ReportsDashboard = () => {
       tabId: "advances-report",
     },
     {
+      title: t.advancesMonthlyReport,
+      description: t.advancesMonthlyReportDesc,
+      icon: <DollarSign className="h-12 w-12 text-green-500" />,
+      link: "advances-monthly-report",
+      tabId: "advances-monthly-report",
+    },
+    {
       title: t.leaveReport,
       description: t.leaveReportDesc,
       icon: <Calendar className="h-12 w-12 text-primary" />,
@@ -93,6 +105,12 @@ const ReportsDashboard = () => {
           </TabsTrigger>
           <TabsTrigger value="advances-report" id="advances-report-tab">
             {t.advancesReport}
+          </TabsTrigger>
+          <TabsTrigger
+            value="advances-monthly-report"
+            id="advances-monthly-report-tab"
+          >
+            {t.advancesMonthlyReport}
           </TabsTrigger>
         </TabsList>
 
@@ -150,6 +168,10 @@ const ReportsDashboard = () => {
 
         <TabsContent value="advances-report">
           <AdvancesReport />
+        </TabsContent>
+
+        <TabsContent value="advances-monthly-report">
+          <AdvancesMonthlyReport />
         </TabsContent>
       </Tabs>
     </div>

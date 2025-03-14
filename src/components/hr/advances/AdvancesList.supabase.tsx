@@ -369,22 +369,54 @@ const AdvancesList = ({}: AdvancesListProps) => {
           <TableBody>
             {filteredAdvances.map((advance) => (
               <TableRow key={advance.id}>
-                <TableCell>{advance.id.toString().substring(0, 8)}</TableCell>
-                <TableCell>{advance.employeeName}</TableCell>
-                <TableCell className="text-right">
-                  {advance.amount} ج.م
+                <TableCell dir={isRTL ? "rtl" : "ltr"}>
+                  {advance.id.toString().substring(0, 8)}
                 </TableCell>
-                <TableCell className="text-right">
-                  {advance.remainingAmount !== undefined &&
-                  advance.remainingAmount !== null
-                    ? advance.remainingAmount
-                    : advance.amount}{" "}
-                  ج.م
+                <TableCell dir={isRTL ? "rtl" : "ltr"}>
+                  {advance.employeeName}
                 </TableCell>
-                <TableCell>{advance.requestDate}</TableCell>
+                <TableCell
+                  className={isRTL ? "text-left" : "text-right"}
+                  dir={isRTL ? "rtl" : "ltr"}
+                >
+                  {isRTL ? (
+                    <>{advance.amount} ج.م</>
+                  ) : (
+                    <>{advance.amount} ج.م</>
+                  )}
+                </TableCell>
+                <TableCell
+                  className={isRTL ? "text-left" : "text-right"}
+                  dir={isRTL ? "rtl" : "ltr"}
+                >
+                  {isRTL ? (
+                    <>
+                      {advance.remainingAmount !== undefined &&
+                      advance.remainingAmount !== null
+                        ? advance.remainingAmount
+                        : advance.amount}{" "}
+                      ج.م
+                    </>
+                  ) : (
+                    <>
+                      {advance.remainingAmount !== undefined &&
+                      advance.remainingAmount !== null
+                        ? advance.remainingAmount
+                        : advance.amount}{" "}
+                      ج.م
+                    </>
+                  )}
+                </TableCell>
+                <TableCell dir={isRTL ? "rtl" : "ltr"}>
+                  {advance.requestDate}
+                </TableCell>
                 {/* Expected payment date cell removed */}
-                <TableCell>{getStatusBadge(advance.status)}</TableCell>
-                <TableCell>{advance.isDeducted ? t.yes : t.no}</TableCell>
+                <TableCell dir={isRTL ? "rtl" : "ltr"}>
+                  {getStatusBadge(advance.status)}
+                </TableCell>
+                <TableCell dir={isRTL ? "rtl" : "ltr"}>
+                  {advance.isDeducted ? t.yes : t.no}
+                </TableCell>
                 <TableCell className="text-right">
                   <div className="flex justify-end gap-2">
                     <Button

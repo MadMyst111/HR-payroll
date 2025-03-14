@@ -352,6 +352,7 @@ const MonthlySalaryReport = () => {
             <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${employee.penaltyDays}</td>
             <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${employee.bonus}</td>
             <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${employee.overtimeAmount}</td>
+            <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${employee.purchases}</td>
             <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${employee.advances}</td>
             <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${totalDeductions}</td>
             <td style="border: 1px solid #ddd; padding: 6px; text-align: right;">${employee.netSalary}</td>
@@ -424,6 +425,7 @@ const MonthlySalaryReport = () => {
               <th style="text-align: right;">${t.penaltyDays}</th>
               <th style="text-align: right;">${t.bonus}</th>
               <th style="text-align: right;">${t.overtimeAmount}</th>
+              <th style="text-align: right;">${t.purchases}</th>
               <th style="text-align: right;">${t.advances}</th>
               <th style="text-align: right;">${t.totalDeductions}</th>
               <th style="text-align: right;">${t.netSalary}</th>
@@ -592,6 +594,7 @@ const MonthlySalaryReport = () => {
                   <TableHead className="text-right">
                     {t.overtimeAmount}
                   </TableHead>
+                  <TableHead className="text-right">{t.purchases}</TableHead>
                   <TableHead className="text-right">{t.advances}</TableHead>
                   <TableHead className="text-right">
                     {t.totalDeductions}
@@ -638,6 +641,9 @@ const MonthlySalaryReport = () => {
                       </TableCell>
                       <TableCell className="text-right">
                         {employee.overtimeAmount} ج.م
+                      </TableCell>
+                      <TableCell className="text-right">
+                        {employee.purchases} ج.م
                       </TableCell>
                       <TableCell className="text-right">
                         {employee.advances} ج.م

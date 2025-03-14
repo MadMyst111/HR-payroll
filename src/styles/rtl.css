@@ -1,0 +1,212 @@
+/* RTL Support Styles */
+
+/* Base RTL direction */
+[dir="rtl"] {
+  text-align: right;
+}
+
+/* Fix input padding for RTL */
+[dir="rtl"] input,
+[dir="rtl"] textarea {
+  text-align: right;
+}
+
+/* Fix button icons for RTL */
+[dir="rtl"] button svg,
+[dir="rtl"] .button svg {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+
+/* Fix table alignment for RTL */
+[dir="rtl"] th,
+[dir="rtl"] td {
+  text-align: right;
+}
+
+/* Fix dropdown alignment for RTL */
+[dir="rtl"] .dropdown-content {
+  right: 0;
+  left: auto;
+}
+
+/* Fix form labels for RTL */
+[dir="rtl"] label {
+  text-align: right;
+}
+
+/* Fix grid layout for RTL */
+[dir="rtl"] .grid-cols-4 > *:first-child,
+[dir="rtl"] .grid-cols-3 > *:first-child,
+[dir="rtl"] .grid-cols-2 > *:first-child {
+  grid-column-start: 1;
+}
+
+/* Fix flexbox ordering for RTL */
+[dir="rtl"] .flex-row {
+  flex-direction: row-reverse;
+}
+
+/* Fix margins and paddings for RTL */
+[dir="rtl"] .mr-2 {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+
+[dir="rtl"] .ml-2 {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+
+[dir="rtl"] .pr-2 {
+  padding-right: 0;
+  padding-left: 0.5rem;
+}
+
+[dir="rtl"] .pl-2 {
+  padding-left: 0;
+  padding-right: 0.5rem;
+}
+
+/* Fix search icon positioning for RTL */
+[dir="rtl"] .search-icon {
+  left: auto;
+  right: 0.75rem;
+}
+
+/* Fix card content alignment for RTL */
+[dir="rtl"] .card-content {
+  text-align: right;
+}
+
+/* Fix dialog content for RTL */
+[dir="rtl"] .dialog-content {
+  text-align: right;
+}
+
+/* Fix table header alignment for RTL */
+[dir="rtl"] .text-right {
+  text-align: left;
+}
+
+[dir="rtl"] .text-left {
+  text-align: right;
+}
+
+/* Fix sidebar navigation for RTL */
+[dir="rtl"] .sidebar-nav {
+  border-right: none;
+  border-left: 1px solid var(--border);
+}
+
+/* Fix dropdown menu alignment for RTL */
+[dir="rtl"] .dropdown-menu {
+  transform-origin: top right;
+}
+
+/* Fix tooltip positioning for RTL */
+[dir="rtl"] .tooltip {
+  transform: translateX(50%);
+}
+
+/* Fix form layout for RTL */
+[dir="rtl"] .form-grid {
+  grid-template-columns: 3fr 1fr;
+}
+
+[dir="rtl"] .form-grid label {
+  grid-column: 2;
+  text-align: left;
+}
+
+[dir="rtl"] .form-grid input,
+[dir="rtl"] .form-grid select,
+[dir="rtl"] .form-grid textarea {
+  grid-column: 1;
+}
+
+/* Fix badge positioning for RTL */
+[dir="rtl"] .badge {
+  margin-left: 0;
+  margin-right: 0.5rem;
+}
+
+/* Fix pagination for RTL */
+[dir="rtl"] .pagination {
+  flex-direction: row-reverse;
+}
+
+/* Fix toast positioning for RTL */
+[dir="rtl"] .toast {
+  right: auto;
+  left: 1rem;
+}
+
+/* Fix select dropdown for RTL */
+[dir="rtl"] .select-trigger .select-value {
+  text-align: right;
+}
+
+/* Fix calendar for RTL */
+[dir="rtl"] .calendar {
+  direction: rtl;
+}
+
+/* Fix tabs for RTL */
+[dir="rtl"] .tabs-list {
+  flex-direction: row-reverse;
+}
+
+/* Fix accordion for RTL */
+[dir="rtl"] .accordion-trigger {
+  flex-direction: row-reverse;
+}
+
+[dir="rtl"] .accordion-content {
+  text-align: right;
+}
+
+/* Fix checkbox and radio for RTL */
+[dir="rtl"] .checkbox-label,
+[dir="rtl"] .radio-label {
+  padding-left: 0;
+  padding-right: 1.5rem;
+}
+
+/* Fix progress bar for RTL */
+[dir="rtl"] .progress-bar {
+  transform-origin: right center;
+}
+
+/* Fix slider for RTL */
+[dir="rtl"] .slider {
+  direction: rtl;
+}
+
+/* Fix data table for RTL */
+[dir="rtl"] .data-table th,
+[dir="rtl"] .data-table td {
+  text-align: right;
+}
+
+[dir="rtl"] .data-table .actions-cell {
+  text-align: left;
+}
+
+/* Fix report generator for RTL */
+[dir="rtl"] .report-fields {
+  text-align: right;
+}
+
+/* Fix date picker for RTL */
+[dir="rtl"] .date-picker {
+  direction: rtl;
+}
+
+/* Fix print layout for RTL */
+@media print {
+  [dir="rtl"] {
+    direction: rtl;
+    text-align: right;
+  }
+}

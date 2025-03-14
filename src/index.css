@@ -114,3 +114,44 @@
   margin-left: 0;
   margin-right: 0.5rem;
 }
+
+/* RTL specific styles */
+[dir="rtl"] {
+  font-family: "Cairo", sans-serif;
+}
+
+/* Fix input alignment in RTL */
+[dir="rtl"] input,
+[dir="rtl"] textarea,
+[dir="rtl"] select {
+  text-align: right;
+}
+
+/* Fix table alignment in RTL */
+[dir="rtl"] th,
+[dir="rtl"] td {
+  text-align: right;
+}
+
+/* Fix button icons in RTL */
+[dir="rtl"] button svg {
+  margin-right: 0;
+  margin-left: 0.5rem;
+}
+
+/* Custom RTL utilities */
+.rtl-grid {
+  direction: rtl;
+}
+
+.rtl-flex {
+  flex-direction: row-reverse;
+}
+
+.rtl-text-right {
+  text-align: right;
+}
+
+.rtl-text-left {
+  text-align: left;
+}
